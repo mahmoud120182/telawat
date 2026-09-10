@@ -22,7 +22,9 @@
         const {
             surahSelect,
             playBtn,
-            fullscreenBtn
+            fullscreenBtn,
+            ayahInput,
+            goToAyahBtn
         } = Q.dom;
 
 
@@ -51,6 +53,88 @@
                         number,
                         false
                     );
+                }
+            );
+        }
+
+
+        /* =================================================
+           GO TO AYAH
+           ================================================= */
+
+        async function handleGoToAyah() {
+
+            if (!ayahInput) {
+                return;
+            }
+
+
+            const value =
+                Number(
+                    ayahInput.value
+                );
+
+
+            if (!value) {
+
+                ayahInput.focus();
+
+                return;
+            }
+
+
+            const ok =
+                await Q.goToAyah(
+                    value
+                );
+
+
+            if (ok) {
+
+                ayahInput.value =
+                    "";
+
+                ayahInput.blur();
+            }
+        }
+
+
+        if (goToAyahBtn) {
+
+            goToAyahBtn.addEventListener(
+                "click",
+                handleGoToAyah
+            );
+        }
+
+
+        if (ayahInput) {
+
+            ayahInput.addEventListener(
+                "keydown",
+                event => {
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+                        event.preventDefault();
+
+                        handleGoToAyah();
+                    }
+
+
+                    if (
+                        event.key ===
+                        "Escape"
+                    ) {
+
+                        ayahInput.value =
+                            "";
+
+                        ayahInput.blur();
+                    }
                 }
             );
         }
@@ -215,7 +299,7 @@
 
     /* =====================================================
        START APPLICATION
-       ================================================= */
+       ===================================================== */
 
     if (
         document.readyState ===
