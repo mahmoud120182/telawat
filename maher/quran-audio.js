@@ -848,6 +848,10 @@
        BASMALA + FIRST AYAH
        ===================================================== */
 
+/* =====================================================
+       BASMALA + FIRST AYAH
+       ===================================================== */
+
     async function playBasmalaThenFirst(
         surah,
         token
@@ -862,6 +866,34 @@
             )
         ) {
 
+            return playAyahBuffer(
+                surah,
+                0,
+                null,
+                0,
+                token
+            );
+        }
+
+        /*
+         * التحقق من وجود ملف البسملة 001001.mp3 قبل تشغيله
+         */
+        let hasBasmalaFile = true;
+        try {
+            const basmalaCheck = await fetch(basmalaUrl(), { method: "HEAD" });
+            if (!basmalaCheck.ok) {
+                hasBasmalaFile = false;
+            }
+        } catch (e) {
+            hasBasmalaFile = false;
+        }
+
+        /*
+         * إذا لم يكن الملف موجوداً، قم بتخطي البسملة وتشغيل الآية الأولى مباشرة
+         */
+        if (!hasBasmalaFile) {
+            console.warn("الملف 001001.mp3 غير موجود، يتم تخطي البسملة.");
+            Q.state.isBasmala = false;
             return playAyahBuffer(
                 surah,
                 0,
@@ -1070,7 +1102,6 @@
 
         return true;
     }
-
 
     /* =====================================================
        SCHEDULE NEXT AYAH
@@ -1582,6 +1613,7 @@
             /*
              * البسملة عند بداية السورة.
              */
+            
             if (
                 includeBasmala &&
                 index === 0 &&

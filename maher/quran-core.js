@@ -17,7 +17,7 @@
     };
 
     Q.BASMALA =
-        "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
+        "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
     Q.dom = {
         surahSelect:
@@ -57,7 +57,14 @@
             document.getElementById("currentTime"),
 
         ayahCounter:
-            document.getElementById("ayahCounter")
+            document.getElementById("ayahCounter"),
+
+        /* الذهاب إلى الآية */
+        ayahInput:
+            document.getElementById("ayahInput"),
+
+        goToAyahBtn:
+            document.getElementById("goToAyahBtn")
     };
 
 
@@ -1147,6 +1154,105 @@
 
 
     /* =====================================================
+       GO TO AYAH
+       الانتقال إلى رقم آية محدد داخل السورة الحالية
+       ===================================================== */
+
+    Q.goToAyah =
+        async function (ayahNumber) {
+
+            const surah =
+                Q.state.currentSurah;
+
+
+            if (!surah) {
+
+                alert(
+                    "اختر سورة أولًا."
+                );
+
+                return false;
+            }
+
+
+            const n =
+                Number(ayahNumber);
+
+
+            if (
+                !Number.isFinite(n) ||
+                n < 1
+            ) {
+
+                alert(
+                    "أدخل رقم آية صحيح."
+                );
+
+                return false;
+            }
+
+
+            if (
+                n >
+                surah.ayahs.length
+            ) {
+
+                alert(
+                    `رقم الآية يجب أن يكون بين 1 و ${surah.ayahs.length}.`
+                );
+
+                return false;
+            }
+
+
+            /*
+             * البحث بمكان رقم الآية داخل السورة
+             */
+            const index =
+                surah.ayahs.findIndex(
+                    ayah =>
+                        ayah.numberInSurah ===
+                        n
+                );
+
+
+            if (index < 0) {
+
+                alert(
+                    "لم يتم العثور على الآية."
+                );
+
+                return false;
+            }
+
+
+            /*
+             * إيقاف أي تشغيل جارٍ قبل الانتقال
+             */
+            Q.state.token++;
+
+            Q.Audio.stop();
+
+            Q.resetProgress();
+
+            Q.setButton(false);
+
+
+            /*
+             * الانتقال إلى الآية
+             * (سيقوم بتحميل الصفحة إن لزم)
+             */
+            await Q.showAyah(
+                index,
+                false
+            );
+
+
+            return true;
+        };
+
+
+    /* =====================================================
        LOAD SURAH
        ===================================================== */
 
@@ -1221,6 +1327,23 @@
 
                 Q.state.currentAyahIndex =
                     0;
+
+
+                /*
+                 * تحديث نطاق حقل رقم الآية
+                 * حسب عدد آيات السورة.
+                 */
+                if (Q.dom.ayahInput) {
+
+                    Q.dom.ayahInput.max =
+                        prepared.ayahs.length;
+
+                    Q.dom.ayahInput.placeholder =
+                        `1 - ${prepared.ayahs.length}`;
+
+                    Q.dom.ayahInput.value =
+                        "";
+                }
 
 
                 if (
