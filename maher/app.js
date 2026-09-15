@@ -141,7 +141,7 @@
 
 
         /* =================================================
-           PLAY / PAUSE WITH USER GESTURE UNLOCK
+           PLAY / PAUSE
            ================================================= */
 
         if (playBtn) {
@@ -151,8 +151,6 @@
                 async () => {
 
                     try {
-
-                        await Q.Audio.resume();
 
                         await Q.Audio.toggle();
 
@@ -220,7 +218,14 @@
 
         /* =================================================
            KEYBOARD
-           ================================================= */
+           =================================================
+
+           Space = تشغيل / إيقاف فقط
+
+           تم إلغاء:
+           ArrowLeft  = الآية السابقة
+           ArrowRight = الآية التالية
+        ================================================= */
 
         document.addEventListener(
             "keydown",
@@ -229,6 +234,11 @@
                 const tag =
                     document.activeElement?.tagName;
 
+
+                /*
+                 * لا نتدخل أثناء الكتابة أو
+                 * اختيار السورة.
+                 */
                 if (
                     tag === "INPUT" ||
                     tag === "TEXTAREA" ||
@@ -238,28 +248,20 @@
                     return;
                 }
 
+
+                /*
+                 * Space
+                 * تشغيل / إيقاف
+                 */
                 if (
                     event.code === "Space"
                 ) {
 
                     event.preventDefault();
 
-                    Q.Audio.resume();
-
                     Q.Audio.toggle();
                 }
             }
-        );
-
-
-        /* =================================================
-           INITIAL AUDIO PRELOAD
-           ================================================= */
-
-        Q.Audio.preload(
-            `${Q.AUDIO_CDN}/` +
-            `${Q.RECITER.folder}/` +
-            `001001.mp3`
         );
 
 
