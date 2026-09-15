@@ -40,7 +40,7 @@
         return (
             `${Q.AUDIO_CDN}/` +
             `${Q.RECITER.folder}/` +
-            `001001.mp3`
+            `1001.mp3`
         );
     }
 
@@ -305,14 +305,55 @@
 
     /* =====================================================
        BASMALA + FIRST AYAH
+       مع فحص وجود ملف البسملة قبل تشغيله
+       (خاصية منقولة من محرّك Web Audio)
        ===================================================== */
 
-    function playBasmalaThenFirst(surah, token) {
+    async function playBasmalaThenFirst(surah, token) {
 
+        /* الفاتحة والتوبة: لا بسملة */
         if (!Q.shouldShowBasmala(surah.number)) {
             return playAyah(surah, 0, token);
         }
 
+        /* ==========================================
+           فحص وجود ملف البسملة قبل تشغيله
+           ========================================== */
+        let hasBasmalaFile = true;
+
+        try {
+            const basmalaCheck = await fetch(
+                basmalaUrl(),
+                { method: "HEAD" }
+            );
+            if (!basmalaCheck.ok) {
+                hasBasmalaFile = false;
+            }
+        } catch (_) {
+            hasBasmalaFile = false;
+        }
+
+        /* تجنّب التشغيل القديم إذا تغيّر token */
+        if (token !== activeToken) {
+            return false;
+        }
+
+        /* ==========================================
+           إذا لم يوجد الملف: تخطّي البسملة
+           والانتقال مباشرة لأول آية
+           ========================================== */
+        if (!hasBasmalaFile) {
+            console.warn(
+                "ملف البسملة غير موجود — يتم تخطّي البسملة والبدء بالآية الأولى."
+            );
+            Q.state.isBasmala = false;
+            mode = "ayah";
+            return playAyah(surah, 0, token);
+        }
+
+        /* ==========================================
+           تشغيل البسملة بشكل طبيعي
+           ========================================== */
         setVisualAyah(0);
 
         mode = "basmala";
@@ -373,7 +414,7 @@
                 return;
             }
 
-            playBasmalaThenFirst(nextSurah, token);
+            await playBasmalaThenFirst(nextSurah, token);
 
         } catch (error) {
 
@@ -418,7 +459,7 @@
             index === 0 &&
             Q.shouldShowBasmala(surah.number)
         ) {
-            return playBasmalaThenFirst(surah, token);
+            return await playBasmalaThenFirst(surah, token);
         }
 
         return playAyah(surah, index, token);
