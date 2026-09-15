@@ -46,6 +46,22 @@
 
 
     /* =====================================================
+       HELPER — MediaSession playbackState
+       ===================================================== */
+
+    function setPlaybackState(state) {
+
+        if (!("mediaSession" in navigator)) {
+            return;
+        }
+
+        try {
+            navigator.mediaSession.playbackState = state;
+        } catch (_) {}
+    }
+
+
+    /* =====================================================
        AUDIO ELEMENT — PROGRESS
        ===================================================== */
 
@@ -116,6 +132,13 @@
                         : ""
                 });
 
+            /*
+             * مهم جدًا: إعلان حالة التشغيل صراحة
+             * حتى يعرف النظام أن الجلسة نشطة.
+             */
+            navigator.mediaSession.playbackState =
+                Q.state.isPlaying ? "playing" : "paused";
+
         } catch (_) {}
     }
 
@@ -128,19 +151,50 @@
 
         try {
 
+            /* -----------------------------------------
+               PLAY — لا نعيد التشغيل من الصفر إذا
+               كان الصوت جاهزًا، بل نكمل من نفس الجلسة.
+               ----------------------------------------- */
             navigator.mediaSession.setActionHandler(
                 "play",
                 () => {
-                    A.playCurrent(
-                        Q.state.currentAyahIndex === 0
-                    );
+
+                    if (audio.src) {
+
+                        const p = audio.play();
+
+                        if (p && typeof p.catch === "function") {
+                            p.catch(() => {
+                                /* احتياط: أعد التشغيل عبر المسار الكامل */
+                                A.playCurrent(
+                                    Q.state.currentAyahIndex === 0
+                                );
+                            });
+                        }
+
+                        setPlaybackState("playing");
+
+                    } else {
+
+                        A.playCurrent(
+                            Q.state.currentAyahIndex === 0
+                        );
+                    }
                 }
             );
 
+            /* -----------------------------------------
+               PAUSE — إيقاف مؤقت فقط بدون reset
+               ----------------------------------------- */
             navigator.mediaSession.setActionHandler(
                 "pause",
                 () => {
-                    A.stop();
+
+                    try {
+                        audio.pause();
+                    } catch (_) {}
+
+                    setPlaybackState("paused");
                 }
             );
 
@@ -215,8 +269,21 @@
             return;
         }
 
-        audio.src = url;
-        audio.load();
+        /*
+         * مهم جدًا للموبايل:
+         * لا نستدعي audio.load() — لأن ذلك يقطع
+         * جلسة الوسائط (Media Session) على أندرويد و iOS.
+         * تعيين src مباشرة يكفي لتحميل المصدر الجديد.
+         */
+        if (audio.src !== url) {
+            audio.src = url;
+        } else {
+            try {
+                audio.currentTime = 0;
+            } catch (_) {}
+        }
+
+        setPlaybackState("playing");
 
         const p = audio.play();
 
@@ -225,6 +292,7 @@
                 console.warn("Audio play failed:", err);
                 Q.state.isPlaying = false;
                 Q.setButton(false);
+                setPlaybackState("paused");
             });
         }
     }
@@ -306,7 +374,6 @@
     /* =====================================================
        BASMALA + FIRST AYAH
        مع فحص وجود ملف البسملة قبل تشغيله
-       (خاصية منقولة من محرّك Web Audio)
        ===================================================== */
 
     async function playBasmalaThenFirst(surah, token) {
@@ -388,6 +455,7 @@
         if (nextNumber > 114) {
             Q.state.isPlaying = false;
             Q.setButton(false);
+            setPlaybackState("paused");
             return;
         }
 
@@ -445,12 +513,11 @@
 
         /*
          * إيقاف أي تشغيل سابق.
+         * ملاحظة: لا نستدعي audio.pause() هنا لأن ذلك
+         * يفصل جلسة الوسائط على الموبايل — تعيين src جديد
+         * في playUrl يتكفّل بإيقاف المقطع السابق.
          */
         pendingNext = null;
-
-        try {
-            audio.pause();
-        } catch (_) {}
 
         Q.resetProgress();
 
@@ -500,13 +567,14 @@
 
         try {
             audio.pause();
-            audio.currentTime = 0;
         } catch (_) {}
 
         Q.state.isPlaying = false;
         Q.state.isBasmala = false;
         Q.setButton(false);
         Q.resetProgress();
+
+        setPlaybackState("paused");
     };
 
 
@@ -535,9 +603,10 @@
 
         pendingNext = null;
 
-        try {
-            audio.pause();
-        } catch (_) {}
+        /*
+         * لا نستدعي audio.pause() — playUrl سيتعامل
+         * مع تغيير المصدر مباشرة.
+         */
 
         const next = Q.state.currentAyahIndex + 1;
 
@@ -572,6 +641,7 @@
         Q.state.isPlaying = false;
         Q.setButton(false);
         Q.resetProgress();
+        setPlaybackState("paused");
 
         const prev = Q.state.currentAyahIndex - 1;
 

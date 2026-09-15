@@ -29,6 +29,19 @@
 
 
         /* =================================================
+           AUDIO ELEMENT — iOS / Android background fix
+           ================================================= */
+
+        if (Q.dom.audio) {
+
+            Q.dom.audio.setAttribute("playsinline", "");
+            Q.dom.audio.setAttribute("webkit-playsinline", "");
+            Q.dom.audio.setAttribute("preload", "auto");
+            Q.dom.audio.setAttribute("crossorigin", "anonymous");
+        }
+
+
+        /* =================================================
            SURAH SELECT
            ================================================= */
 
@@ -218,7 +231,6 @@
 
         /* =================================================
            KEYBOARD
-           =================================================
 
            Space = تشغيل / إيقاف فقط
 
@@ -261,6 +273,33 @@
 
                     Q.Audio.toggle();
                 }
+            }
+        );
+
+
+        /* =================================================
+           VISIBILITY CHANGE
+           الحفاظ على تزامن MediaSession مع حالة التشغيل
+           ================================================= */
+
+        document.addEventListener(
+            "visibilitychange",
+            () => {
+
+                if (
+                    !("mediaSession" in navigator)
+                ) {
+                    return;
+                }
+
+                try {
+
+                    navigator.mediaSession.playbackState =
+                        Q.state.isPlaying
+                            ? "playing"
+                            : "paused";
+
+                } catch (_) {}
             }
         );
 
