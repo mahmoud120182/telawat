@@ -1,6 +1,6 @@
 /* =========================================================
    QURAN AUDIO ENGINE
-   تشغيل متصل باستخدام Web Audio API
+   تشغيل عبر عنصر <audio> — يعمل في الخلفية بعد قفل الشاشة
    ========================================================= */
 
 (() => {
@@ -9,676 +9,163 @@
     const Q = window.QuranApp;
 
     if (!Q) {
-        throw new Error(
-            "Quran core is not loaded"
-        );
+        throw new Error("Quran core is not loaded");
     }
 
     const A = Q.Audio = {};
 
+    const audio = Q.dom.audio;
 
-    /* =====================================================
-       WEB AUDIO
-       ===================================================== */
-
-    let context = null;
-    let gain = null;
-
-
-    function getContext() {
-
-        if (!context) {
-
-            context =
-                new (
-                    window.AudioContext ||
-                    window.webkitAudioContext
-                )();
-
-
-            gain =
-                context.createGain();
-
-
-            gain.connect(
-                context.destination
-            );
-        }
-
-
-        return context;
+    if (!audio) {
+        throw new Error("<audio id='audio'> element not found");
     }
 
 
-    A.resume =
-        async function () {
-
-            const ctx =
-                getContext();
-
-
-            if (
-                ctx.state ===
-                "suspended"
-            ) {
-
-                await ctx.resume();
-            }
-        };
-
-
     /* =====================================================
-       AUDIO CACHE
+       STATE
        ===================================================== */
-
-    const buffers =
-        new Map();
-
-    const loading =
-        new Map();
-
-
-    /* =====================================================
-       SOURCES
-       ===================================================== */
-
-    let activeSource = null;
-
-    let activeStartedAt = 0;
-
-    let activeOffset = 0;
-
-    let activeDuration = 0;
-
-    let mode = "ayah";
 
     let activeToken = 0;
-
-    let timer = null;
-
-    let transitionTimer = null;
-
-    let scheduledNext = null;
-
-    const scheduledSources =
-        new Set();
+    let mode = "ayah";
+    let pendingNext = null;
 
 
     /* =====================================================
-       BASMALA AUDIO
+       BASMALA URL
+       نستخدم أول آية من الفاتحة (001001.mp3)
+       لأنها البسملة وهي متوفرة دائمًا في everyayah.
        ===================================================== */
 
     function basmalaUrl() {
-
-        /*
-         * تسجيل ماهر المعيقلي
-         */
         return (
             `${Q.AUDIO_CDN}/` +
             `${Q.RECITER.folder}/` +
-            `1001.mp3`
+            `001001.mp3`
         );
     }
 
 
     /* =====================================================
-       LOAD + DECODE AUDIO
+       AUDIO ELEMENT — PROGRESS
        ===================================================== */
 
-    async function loadBuffer(url) {
+    audio.addEventListener("timeupdate", () => {
 
-        if (!url) {
-            return null;
-        }
-
-
-        /*
-         * موجود بالفعل في الذاكرة
-         */
-        if (
-            buffers.has(url)
-        ) {
-
-            return buffers.get(url);
-        }
-
-
-        /*
-         * يتم تحميله حالياً
-         */
-        if (
-            loading.has(url)
-        ) {
-
-            return loading.get(url);
-        }
-
-
-        const promise =
-            (async () => {
-
-                const response =
-                    await fetch(
-                        url,
-                        {
-                            cache:
-                                "force-cache"
-                        }
-                    );
-
-
-                if (
-                    !response.ok
-                ) {
-
-                    throw new Error(
-                        `Audio HTTP ${response.status}`
-                    );
-                }
-
-
-                const arrayBuffer =
-                    await response.arrayBuffer();
-
-
-                const ctx =
-                    getContext();
-
-
-                const decoded =
-                    await ctx.decodeAudioData(
-                        arrayBuffer
-                    );
-
-
-                buffers.set(
-                    url,
-                    decoded
-                );
-
-
-                loading.delete(
-                    url
-                );
-
-
-                return decoded;
-
-            })()
-            .catch(
-                error => {
-
-                    loading.delete(
-                        url
-                    );
-
-                    console.error(
-                        "Audio preload:",
-                        error
-                    );
-
-                    throw error;
-                }
-            );
-
-
-        loading.set(
-            url,
-            promise
-        );
-
-
-        return promise;
-    }
-
-
-    /* =====================================================
-       PRELOAD
-       ===================================================== */
-
-    A.preload =
-        function (url) {
-
-            if (!url) {
-                return;
-            }
-
-            loadBuffer(url)
-                .catch(
-                    () => {}
-                );
-        };
-
-
-    /* =====================================================
-       PREPARE FIRST AUDIO
-       ===================================================== */
-
-    A.prepareFirstForSurah =
-        function (surahNumber) {
-
-            const n =
-                Number(surahNumber);
-
-
-            if (
-                !n ||
-                n > 114
-            ) {
-                return;
-            }
-
-
-            /*
-             * البسملة
-             */
-            if (
-                Q.shouldShowBasmala(n)
-            ) {
-
-                A.preload(
-                    basmalaUrl()
-                );
-            }
-
-
-            /*
-             * أول 4 آيات
-             */
-            for (
-                let i = 1;
-                i <= 4;
-                i++
-            ) {
-
-                A.preload(
-                    Q.audioUrl(
-                        n,
-                        i
-                    )
-                );
-            }
-        };
-
-
-    /* =====================================================
-       PRELOAD CURRENT + NEXT
-       ===================================================== */
-
-    A.preloadForSurah =
-        function (
-            surah,
-            index
-        ) {
-
-            if (!surah) {
-                return;
-            }
-
-
-            /*
-             * تجهيز 4 آيات قادمة.
-             *
-             * هذا مهم جداً حتى لا ننتظر
-             * الشبكة عند نهاية الآية.
-             */
-            for (
-                let i = index;
-                i <
-                    Math.min(
-                        index + 5,
-                        surah.ayahs.length
-                    );
-                i++
-            ) {
-
-                const ayah =
-                    surah.ayahs[i];
-
-
-                A.preload(
-                    Q.getAyahAudioUrl(
-                        ayah,
-                        surah.number
-                    )
-                );
-            }
-        };
-
-
-    /* =====================================================
-       PREPARE NEXT SURAH
-       ===================================================== */
-
-    A.prepareNextSurah =
-        function (number) {
-
-            const n =
-                Number(number);
-
-
-            if (
-                !n ||
-                n > 114
-            ) {
-                return;
-            }
-
-
-            /*
-             * تحميل بيانات السورة
-             * في الخلفية.
-             */
-            Q.getSurahData(n)
-                .then(
-                    data => {
-
-                        if (
-                            Q.shouldShowBasmala(
-                                n
-                            )
-                        ) {
-
-                            A.preload(
-                                basmalaUrl()
-                            );
-                        }
-
-
-                        /*
-                         * تجهيز أول عدة آيات.
-                         */
-                        const ayahs =
-                            data?.ayahs || [];
-
-
-                        ayahs
-                            .slice(0, 4)
-                            .forEach(
-                                ayah => {
-
-                                    A.preload(
-                                        Q.audioUrl(
-                                            n,
-                                            ayah.numberInSurah
-                                        )
-                                    );
-                                }
-                            );
-                    }
-                )
-                .catch(
-                    () => {}
-                );
-        };
-
-
-    /* =====================================================
-       STOP SOURCES
-       ===================================================== */
-
-    function stopSources() {
-
-        scheduledSources
-            .forEach(
-                source => {
-
-                    try {
-
-                        source.onended =
-                            null;
-
-                        source.stop();
-
-                    } catch (_) {}
-
-
-                    try {
-
-                        source.disconnect();
-
-                    } catch (_) {}
-                }
-            );
-
-
-        scheduledSources.clear();
-
-        activeSource =
-            null;
-
-
-        if (
-            transitionTimer
-        ) {
-
-            clearTimeout(
-                transitionTimer
-            );
-
-            transitionTimer =
-                null;
-        }
-
-
-        if (timer) {
-
-            clearInterval(
-                timer
-            );
-
-            timer =
-                null;
-        }
-
-
-        scheduledNext =
-            null;
-    }
-
-
-    /* =====================================================
-       STOP
-       ===================================================== */
-
-    A.stop =
-        function () {
-
-            activeToken++;
-
-            stopSources();
-
-            activeOffset =
-                0;
-
-            activeStartedAt =
-                0;
-
-            activeDuration =
-                0;
-
-            mode =
-                "ayah";
-
-            Q.state.isPlaying =
-                false;
-
-            Q.state.isBasmala =
-                false;
-        };
-
-
-    /* =====================================================
-       START BUFFER
-       ===================================================== */
-
-    function startBuffer(
-        buffer,
-        offset = 0,
-        startAt = null
-    ) {
-
-        const ctx =
-            getContext();
-
-
-        const source =
-            ctx.createBufferSource();
-
-
-        source.buffer =
-            buffer;
-
-
-        source.connect(
-            gain
-        );
-
-
-        /*
-         * حذف المرجع من قائمة المصادر
-         * بعد انتهاء تشغيله.
-         */
-        source.onended =
-            () => {
-
-                scheduledSources.delete(
-                    source
-                );
-            };
-
-
-        const when =
-            startAt ??
-            ctx.currentTime;
-
-
-        source.start(
-            when,
-            Math.max(
-                0,
-                offset
-            )
-        );
-
-
-        scheduledSources.add(
-            source
-        );
-
-
-        activeSource =
-            source;
-
-
-        activeStartedAt =
-            when;
-
-
-        activeOffset =
-            offset;
-
-
-        activeDuration =
-            buffer.duration;
-
-
-        return {
-
-            source,
-
-            endAt:
-                when +
-                Math.max(
-                    0,
-                    buffer.duration -
-                        offset
-                )
-        };
-    }
-
-
-    /* =====================================================
-       PROGRESS
-       ===================================================== */
-
-    function updateProgress() {
-
-        if (
-            !Q.state.isPlaying
-        ) {
+        if (!audio.duration) {
             return;
         }
 
-
-        const ctx =
-            getContext();
-
-
-        let elapsed =
-            ctx.currentTime -
-            activeStartedAt +
-            activeOffset;
-
-
-        elapsed =
-            Math.max(
-                0,
-                Math.min(
-                    elapsed,
-                    activeDuration ||
-                        0
-                )
-            );
-
-
         const percent =
-            activeDuration > 0
+            (audio.currentTime / audio.duration) * 100;
 
-                ? (
-                    elapsed /
-                    activeDuration
-                ) * 100
-
-                : 0;
-
-
-        if (
-            Q.dom.progressBar
-        ) {
-
-            Q.dom.progressBar.style.width =
-                `${percent}%`;
+        if (Q.dom.progressBar) {
+            Q.dom.progressBar.style.width = `${percent}%`;
         }
 
-
-        if (
-            Q.dom.currentTime
-        ) {
-
+        if (Q.dom.currentTime) {
             Q.dom.currentTime.textContent =
-                Q.formatTime(
-                    elapsed
-                );
+                Q.formatTime(audio.currentTime);
         }
+    });
+
+
+    audio.addEventListener("loadedmetadata", () => {
+
+        if (Q.dom.progressBar) {
+            Q.dom.progressBar.style.width = "0%";
+        }
+
+        if (Q.dom.currentTime) {
+            Q.dom.currentTime.textContent = "00:00";
+        }
+    });
+
+
+    audio.addEventListener("error", () => {
+
+        /*
+         * تجاهل الأخطاء الناتجة عن إفراغ src
+         * عند الإيقاف.
+         */
+        if (!audio.src || audio.src === window.location.href) {
+            return;
+        }
+
+        console.error("Audio element error:", audio.error);
+    });
+
+
+    /* =====================================================
+       MEDIA SESSION — شاشة القفل
+       ===================================================== */
+
+    function updateMediaSession(surah, ayah) {
+
+        if (!("mediaSession" in navigator)) {
+            return;
+        }
+
+        try {
+
+            navigator.mediaSession.metadata =
+                new MediaMetadata({
+                    title: surah?.name || "القرآن الكريم",
+                    artist: Q.RECITER.name,
+                    album: ayah
+                        ? `الآية ${ayah.numberInSurah}`
+                        : ""
+                });
+
+        } catch (_) {}
     }
 
 
-    function startProgressTimer() {
+    function setupMediaSessionHandlers() {
 
-        if (timer) {
-
-            clearInterval(
-                timer
-            );
+        if (!("mediaSession" in navigator)) {
+            return;
         }
 
+        try {
 
-        timer =
-            setInterval(
-                updateProgress,
-                50
+            navigator.mediaSession.setActionHandler(
+                "play",
+                () => {
+                    A.playCurrent(
+                        Q.state.currentAyahIndex === 0
+                    );
+                }
             );
+
+            navigator.mediaSession.setActionHandler(
+                "pause",
+                () => {
+                    A.stop();
+                }
+            );
+
+            navigator.mediaSession.setActionHandler(
+                "previoustrack",
+                () => {
+                    A.previous();
+                }
+            );
+
+            navigator.mediaSession.setActionHandler(
+                "nexttrack",
+                () => {
+                    A.next();
+                }
+            );
+
+            navigator.mediaSession.setActionHandler(
+                "stop",
+                () => {
+                    A.stop();
+                }
+            );
+
+        } catch (_) {}
     }
 
 
@@ -686,1130 +173,389 @@
        VISUAL AYAH
        ===================================================== */
 
-    function setVisualAyah(
-        index
-    ) {
+    function setVisualAyah(index) {
 
-        const surah =
-            Q.state.currentSurah;
-
+        const surah = Q.state.currentSurah;
 
         if (!surah) {
             return;
         }
 
+        Q.state.currentAyahIndex = index;
 
-        Q.state.currentAyahIndex =
-            index;
-
-
-        const ayah =
-            surah.ayahs[index];
-
+        const ayah = surah.ayahs[index];
 
         if (!ayah) {
             return;
         }
 
-
-        if (
-            Q.dom.ayahCounter
-        ) {
-
+        if (Q.dom.ayahCounter) {
             Q.dom.ayahCounter.textContent =
                 `الآية ${ayah.numberInSurah} • الصفحة ${ayah.page}`;
         }
 
-
-        if (
-            Q.state.currentPage ===
-            ayah.page
-        ) {
-
-            Q.highlightAyah(
-                ayah.number
-            );
-
+        if (Q.state.currentPage === ayah.page) {
+            Q.highlightAyah(ayah.number);
         } else {
+            Q.renderPageForAyah(ayah)
+                .catch(console.error);
+        }
 
-            Q.renderPageForAyah(
-                ayah
-            ).catch(
-                console.error
-            );
+        updateMediaSession(surah, ayah);
+    }
+
+
+    /* =====================================================
+       CORE PLAYBACK
+       ===================================================== */
+
+    function playUrl(url) {
+
+        if (!url) {
+            return;
+        }
+
+        audio.src = url;
+        audio.load();
+
+        const p = audio.play();
+
+        if (p && typeof p.catch === "function") {
+            p.catch((err) => {
+                console.warn("Audio play failed:", err);
+                Q.state.isPlaying = false;
+                Q.setButton(false);
+            });
         }
     }
+
+
+    function onEnded() {
+
+        const task = pendingNext;
+        pendingNext = null;
+
+        if (!task) {
+            return;
+        }
+
+        if (task.token !== activeToken) {
+            return;
+        }
+
+        if (task.kind === "basmala") {
+            Q.state.isBasmala = false;
+            mode = "ayah";
+            playAyah(task.surah, 0, task.token);
+            return;
+        }
+
+        if (task.kind === "ayah") {
+
+            const nextIndex = task.index + 1;
+
+            if (nextIndex < task.surah.ayahs.length) {
+                playAyah(task.surah, nextIndex, task.token);
+            } else {
+                finishSurah(task.surah, task.token);
+            }
+        }
+    }
+
+    audio.addEventListener("ended", onEnded);
 
 
     /* =====================================================
        PLAY AYAH
        ===================================================== */
 
-    async function playAyahBuffer(
-        surah,
-        index,
-        startAt = null,
-        offset = 0,
-        token = activeToken
-    ) {
+    function playAyah(surah, index, token) {
 
-        if (
-            !surah ||
-            !surah.ayahs[index]
-        ) {
-
+        if (token !== activeToken) {
             return false;
         }
 
-
-        const ayah =
-            surah.ayahs[index];
-
-
-        const url =
-            Q.getAyahAudioUrl(
-                ayah,
-                surah.number
-            );
-
-
-        /*
-         * إذا لم يكن الصوت جاهزاً
-         * سيتم تحميله الآن.
-         */
-        const buffer =
-            await loadBuffer(
-                url
-            );
-
-
-        if (
-            token !== activeToken
-        ) {
-
+        if (!surah || !surah.ayahs[index]) {
             return false;
         }
 
+        const ayah = surah.ayahs[index];
 
-        const result =
-            startBuffer(
-                buffer,
-                offset,
-                startAt
-            );
+        setVisualAyah(index);
 
+        mode = "ayah";
+        Q.state.isBasmala = false;
+        Q.state.isPlaying = true;
+        Q.setButton(true);
 
-        mode =
-            "ayah";
-
-
-        Q.state.isBasmala =
-            false;
-
-
-        Q.state.isPlaying =
-            true;
-
-
-        Q.setButton(
-            true
+        playUrl(
+            Q.getAyahAudioUrl(ayah, surah.number)
         );
 
-
-        startProgressTimer();
-
-
-        /*
-         * تجهيز عدة آيات قادمة.
-         */
-        A.preloadForSurah(
-            surah,
-            index
-        );
-
-
-        /*
-         * جدولة الآية التالية
-         * عند نهاية الآية الحالية.
-         */
-        scheduleAyahTransition(
-            result.endAt,
+        pendingNext = {
+            kind: "ayah",
             surah,
             index,
             token
-        );
-
-
-        return true;
-    }
-
-
-    /* =====================================================
-       BASMALA + FIRST AYAH
-       ===================================================== */
-
-/* =====================================================
-       BASMALA + FIRST AYAH
-       ===================================================== */
-
-    async function playBasmalaThenFirst(
-        surah,
-        token
-    ) {
-
-        /*
-         * الفاتحة والتوبة
-         */
-        if (
-            !Q.shouldShowBasmala(
-                surah.number
-            )
-        ) {
-
-            return playAyahBuffer(
-                surah,
-                0,
-                null,
-                0,
-                token
-            );
-        }
-
-        /*
-         * التحقق من وجود ملف البسملة 001001.mp3 قبل تشغيله
-         */
-        let hasBasmalaFile = true;
-        try {
-            const basmalaCheck = await fetch(basmalaUrl(), { method: "HEAD" });
-            if (!basmalaCheck.ok) {
-                hasBasmalaFile = false;
-            }
-        } catch (e) {
-            hasBasmalaFile = false;
-        }
-
-        /*
-         * إذا لم يكن الملف موجوداً، قم بتخطي البسملة وتشغيل الآية الأولى مباشرة
-         */
-        if (!hasBasmalaFile) {
-            console.warn("الملف 1001.mp3 غير موجود، يتم تخطي البسملة.");
-            Q.state.isBasmala = false;
-            return playAyahBuffer(
-                surah,
-                0,
-                null,
-                0,
-                token
-            );
-        }
-
-
-        /*
-         * تحميل البسملة.
-         */
-        const basmalaBuffer =
-            await loadBuffer(
-                basmalaUrl()
-            );
-
-
-        if (
-            token !== activeToken
-        ) {
-
-            return false;
-        }
-
-
-        /*
-         * تحميل أول آية
-         * قبل بدء البسملة.
-         */
-        const firstAyah =
-            surah.ayahs[0];
-
-
-        const firstUrl =
-            Q.getAyahAudioUrl(
-                firstAyah,
-                surah.number
-            );
-
-
-        const firstBuffer =
-            await loadBuffer(
-                firstUrl
-            );
-
-
-        if (
-            token !== activeToken
-        ) {
-
-            return false;
-        }
-
-
-        stopSources();
-
-
-        const ctx =
-            getContext();
-
-
-        /*
-         * البسملة تبدأ فوراً.
-         */
-        const basmalaResult =
-            startBuffer(
-                basmalaBuffer,
-                0,
-                ctx.currentTime
-            );
-
-
-        mode =
-            "basmala";
-
-
-        Q.state.isBasmala =
-            true;
-
-
-        Q.state.isPlaying =
-            true;
-
-
-        Q.setButton(
-            true
-        );
-
-
-        startProgressTimer();
-
-
-        /*
-         * أهم نقطة:
-         *
-         * أول آية يتم جدولتها مسبقاً
-         * عند نهاية البسملة مباشرة.
-         */
-        const ayahStart =
-            basmalaResult.endAt;
-
-
-        const ayahResult =
-            startBuffer(
-                firstBuffer,
-                0,
-                ayahStart
-            );
-
-
-        scheduledNext = {
-            kind: "ayah",
-            surah,
-            index: 0,
-            source:
-                ayahResult.source,
-            startAt:
-                ayahStart,
-            endAt:
-                ayahResult.endAt
         };
 
-
-        /*
-         * تغيير التظليل لحظة بدء الآية.
-         */
-        const visualDelay =
-            Math.max(
-                0,
-                (
-                    ayahStart -
-                    ctx.currentTime
-                ) * 1000
-            );
+        return true;
+    }
 
 
-        transitionTimer =
-            setTimeout(
-                () => {
+    /* =====================================================
+       BASMALA + FIRST AYAH
+       ===================================================== */
 
-                    if (
-                        token !==
-                        activeToken
-                    ) {
-                        return;
-                    }
+    function playBasmalaThenFirst(surah, token) {
 
+        if (!Q.shouldShowBasmala(surah.number)) {
+            return playAyah(surah, 0, token);
+        }
 
-                    Q.state.isBasmala =
-                        false;
+        setVisualAyah(0);
 
+        mode = "basmala";
+        Q.state.isBasmala = true;
+        Q.state.isPlaying = true;
+        Q.setButton(true);
 
-                    setVisualAyah(
-                        0
-                    );
+        playUrl(basmalaUrl());
 
-
-                    Q.resetProgress();
-
-
-                    activeSource =
-                        ayahResult.source;
-
-
-                    activeStartedAt =
-                        ayahStart;
-
-
-                    activeOffset =
-                        0;
-
-
-                    activeDuration =
-                        firstBuffer.duration;
-
-
-                    mode =
-                        "ayah";
-
-                },
-                visualDelay
-            );
-
-
-        /*
-         * تجهيز الآيات التالية.
-         */
-        A.preloadForSurah(
+        pendingNext = {
+            kind: "basmala",
             surah,
-            0
-        );
-
-
-        /*
-         * جدولة الآية الثانية.
-         */
-        scheduleAyahTransition(
-            ayahResult.endAt,
-            surah,
-            0,
             token
-        );
-
+        };
 
         return true;
     }
 
-    /* =====================================================
-       SCHEDULE NEXT AYAH
-       ===================================================== */
-
-    function scheduleAyahTransition(
-        endAt,
-        surah,
-        index,
-        token
-    ) {
-
-        if (
-            transitionTimer
-        ) {
-
-            clearTimeout(
-                transitionTimer
-            );
-        }
-
-
-        const ctx =
-            getContext();
-
-
-        const nextIndex =
-            index + 1;
-
-
-        /*
-         * ما زالت هناك آيات.
-         */
-        if (
-            nextIndex <
-            surah.ayahs.length
-        ) {
-
-            const nextAyah =
-                surah.ayahs[
-                    nextIndex
-                ];
-
-
-            /*
-             * الصوت التالي يجب أن يكون
-             * decoded قبل نهاية الحالي.
-             */
-            loadBuffer(
-                Q.getAyahAudioUrl(
-                    nextAyah,
-                    surah.number
-                )
-            )
-                .then(
-                    nextBuffer => {
-
-                        if (
-                            token !==
-                            activeToken
-                        ) {
-                            return;
-                        }
-
-
-                        const now =
-                            ctx.currentTime;
-
-
-                        /*
-                         * جاهز قبل نهاية الآية.
-                         */
-                        if (
-                            now <
-                            endAt -
-                                0.015
-                        ) {
-
-                            const nextResult =
-                                startBuffer(
-                                    nextBuffer,
-                                    0,
-                                    endAt
-                                );
-
-
-                            scheduledNext = {
-
-                                kind:
-                                    "ayah",
-
-                                surah,
-
-                                index:
-                                    nextIndex,
-
-                                source:
-                                    nextResult.source,
-
-                                startAt:
-                                    endAt,
-
-                                endAt:
-                                    nextResult.endAt
-                            };
-
-
-                            const delay =
-                                Math.max(
-                                    0,
-                                    (
-                                        endAt -
-                                        now
-                                    ) * 1000
-                                );
-
-
-                            transitionTimer =
-                                setTimeout(
-                                    () => {
-
-                                        if (
-                                            token !==
-                                            activeToken
-                                        ) {
-                                            return;
-                                        }
-
-
-                                        activeSource =
-                                            nextResult.source;
-
-
-                                        activeStartedAt =
-                                            endAt;
-
-
-                                        activeOffset =
-                                            0;
-
-
-                                        activeDuration =
-                                            nextBuffer.duration;
-
-
-                                        setVisualAyah(
-                                            nextIndex
-                                        );
-
-
-                                        Q.resetProgress();
-
-
-                                        scheduleAyahTransition(
-                                            nextResult.endAt,
-                                            surah,
-                                            nextIndex,
-                                            token
-                                        );
-
-                                    },
-                                    delay
-                                );
-
-
-                            return;
-                        }
-
-
-                        /*
-                         * Fallback في حالة الشبكة البطيئة.
-                         */
-                        transitionTimer =
-                            setTimeout(
-                                () => {
-
-                                    fallbackNextAyah(
-                                        surah,
-                                        index,
-                                        token
-                                    );
-
-                                },
-                                Math.max(
-                                    0,
-                                    (
-                                        endAt -
-                                        ctx.currentTime
-                                    ) * 1000
-                                )
-                            );
-                    }
-                )
-                .catch(
-                    () => {
-
-                        transitionTimer =
-                            setTimeout(
-                                () => {
-
-                                    fallbackNextAyah(
-                                        surah,
-                                        index,
-                                        token
-                                    );
-
-                                },
-                                Math.max(
-                                    0,
-                                    (
-                                        endAt -
-                                        ctx.currentTime
-                                    ) * 1000
-                                )
-                            );
-                    }
-                );
-
-
-            return;
-        }
-
-
-        /*
-         * آخر آية.
-         *
-         * نجهز السورة التالية.
-         */
-        A.prepareNextSurah(
-            surah.number + 1
-        );
-
-
-        transitionTimer =
-            setTimeout(
-                () => {
-
-                    finishSurah(
-                        surah,
-                        token
-                    );
-
-                },
-                Math.max(
-                    0,
-                    (
-                        endAt -
-                        ctx.currentTime
-                    ) * 1000
-                )
-            );
-    }
-
 
     /* =====================================================
-       FALLBACK
+       FINISH SURAH → NEXT SURAH
        ===================================================== */
 
-    async function fallbackNextAyah(
-        surah,
-        index,
-        token
-    ) {
+    async function finishSurah(surah, token) {
 
-        if (
-            token !== activeToken
-        ) {
+        if (token !== activeToken) {
             return;
         }
 
+        const nextNumber = surah.number + 1;
 
-        const nextIndex =
-            index + 1;
-
-
-        if (
-            nextIndex >=
-            surah.ayahs.length
-        ) {
-
-            await finishSurah(
-                surah,
-                token
-            );
-
+        if (nextNumber > 114) {
+            Q.state.isPlaying = false;
+            Q.setButton(false);
             return;
         }
-
-
-        setVisualAyah(
-            nextIndex
-        );
-
-
-        Q.resetProgress();
-
-
-        await playAyahBuffer(
-            surah,
-            nextIndex,
-            null,
-            0,
-            token
-        );
-    }
-
-
-    /* =====================================================
-       FINISH SURAH
-       ===================================================== */
-
-    async function finishSurah(
-        surah,
-        token
-    ) {
-
-        if (
-            token !== activeToken
-        ) {
-            return;
-        }
-
-
-        const nextNumber =
-            surah.number + 1;
-
-
-        if (
-            nextNumber > 114
-        ) {
-
-            Q.state.isPlaying =
-                false;
-
-            Q.setButton(
-                false
-            );
-
-            return;
-        }
-
 
         try {
 
-            /*
-             * السورة التالية تم تجهيز بياناتها
-             * مسبقاً غالباً.
-             */
             const nextSurah =
-                await Q.prepareSurah(
-                    nextNumber
-                );
+                await Q.prepareSurah(nextNumber);
 
-
-            if (
-                token !==
-                activeToken
-            ) {
+            if (token !== activeToken) {
                 return;
             }
 
+            Q.state.currentSurah = nextSurah;
+            Q.state.currentAyahIndex = 0;
+            Q.state.currentPage = null;
 
-            Q.state.currentSurah =
-                nextSurah;
-
-
-            Q.state.currentAyahIndex =
-                0;
-
-
-            Q.state.currentPage =
-                null;
-
-
-            if (
-                Q.dom.surahSelect
-            ) {
-
-                Q.dom.surahSelect.value =
-                    nextNumber;
+            if (Q.dom.surahSelect) {
+                Q.dom.surahSelect.value = nextNumber;
             }
 
+            await Q.showAyah(0, false);
 
-            const first =
-                nextSurah.ayahs[0];
-
-
-            /*
-             * الصفحة + الصوت معاً.
-             */
-            const pagePromise =
-                Q.getPageData(
-                    first.page
-                );
-
-
-            A.preloadForSurah(
-                nextSurah,
-                0
-            );
-
-
-            await pagePromise;
-
-
-            if (
-                token !==
-                activeToken
-            ) {
+            if (token !== activeToken) {
                 return;
             }
 
-
-            await Q.showAyah(
-                0,
-                false
-            );
-
-
-            if (
-                token !==
-                activeToken
-            ) {
-                return;
-            }
-
-
-            /*
-             * البسملة + أول آية.
-             */
-            await playBasmalaThenFirst(
-                nextSurah,
-                token
-            );
-
-
-            /*
-             * تجهيز السورة التي بعدها.
-             */
-            A.prepareNextSurah(
-                nextNumber + 1
-            );
+            playBasmalaThenFirst(nextSurah, token);
 
         } catch (error) {
 
-            console.error(
-                "finishSurah:",
-                error
-            );
+            console.error("finishSurah:", error);
 
-
-            /*
-             * محاولة احتياطية.
-             */
             try {
-
-                await Q.loadSurah(
-                    nextNumber,
-                    true
-                );
-
+                await Q.loadSurah(nextNumber, true);
             } catch (_) {}
         }
     }
 
 
     /* =====================================================
-       PLAY CURRENT
+       PUBLIC API — PLAY CURRENT
        ===================================================== */
 
-    A.playCurrent =
-        async function (
-            includeBasmala = true
+    A.playCurrent = async function (includeBasmala = true) {
+
+        if (!Q.state.currentSurah) {
+            alert("اختر سورة أولًا.");
+            return false;
+        }
+
+        const token = ++activeToken;
+
+        const surah = Q.state.currentSurah;
+        const index = Q.state.currentAyahIndex;
+
+        /*
+         * إيقاف أي تشغيل سابق.
+         */
+        pendingNext = null;
+
+        try {
+            audio.pause();
+        } catch (_) {}
+
+        Q.resetProgress();
+
+        if (
+            includeBasmala &&
+            index === 0 &&
+            Q.shouldShowBasmala(surah.number)
         ) {
+            return playBasmalaThenFirst(surah, token);
+        }
 
-            if (
-                !Q.state.currentSurah
-            ) {
-
-                alert(
-                    "اختر سورة أولًا."
-                );
-
-                return false;
-            }
-
-
-            await A.resume();
-
-
-            const token =
-                ++activeToken;
-
-
-            stopSources();
-
-
-            const surah =
-                Q.state.currentSurah;
-
-
-            const index =
-                Q.state.currentAyahIndex;
-
-
-            Q.resetProgress();
-
-
-            /*
-             * البسملة عند بداية السورة.
-             */
-            
-            if (
-                includeBasmala &&
-                index === 0 &&
-                Q.shouldShowBasmala(
-                    surah.number
-                )
-            ) {
-
-                return playBasmalaThenFirst(
-                    surah,
-                    token
-                );
-            }
-
-
-            return playAyahBuffer(
-                surah,
-                index,
-                null,
-                0,
-                token
-            );
-        };
+        return playAyah(surah, index, token);
+    };
 
 
     /* =====================================================
        TOGGLE
        ===================================================== */
 
-    A.toggle =
-        async function () {
+    A.toggle = async function () {
 
-            if (
-                !Q.state.currentSurah
-            ) {
+        if (!Q.state.currentSurah) {
+            alert("اختر سورة أولًا.");
+            return;
+        }
 
-                alert(
-                    "اختر سورة أولًا."
-                );
+        if (Q.state.isPlaying) {
+            A.stop();
+            return;
+        }
 
-                return;
-            }
-
-
-            if (
-                Q.state.isPlaying
-            ) {
-
-                /*
-                 * عند الإيقاف نوقف كل المصادر المجدولة.
-                 */
-                A.stop();
-
-                Q.resetProgress();
-
-                Q.setButton(
-                    false
-                );
-
-                return;
-            }
-
-
-            /*
-             * التشغيل يبدأ من الآية الحالية.
-             */
-            await A.playCurrent(
-                Q.state.currentAyahIndex === 0
-            );
-        };
+        await A.playCurrent(
+            Q.state.currentAyahIndex === 0
+        );
+    };
 
 
     /* =====================================================
-       NEXT
+       STOP
        ===================================================== */
 
-    A.next =
-        async function () {
+    A.stop = function () {
 
-            const surah =
-                Q.state.currentSurah;
+        activeToken++;
+        pendingNext = null;
+        mode = "ayah";
 
+        try {
+            audio.pause();
+            audio.currentTime = 0;
+        } catch (_) {}
 
-            if (!surah) {
-                return;
-            }
-
-
-            const next =
-                Q.state.currentAyahIndex +
-                1;
-
-
-            if (
-                next <
-                surah.ayahs.length
-            ) {
-
-                activeToken++;
-
-                stopSources();
-
-
-                Q.state.isBasmala =
-                    false;
-
-
-                Q.state.currentAyahIndex =
-                    next;
-
-
-                await Q.showAyah(
-                    next,
-                    false
-                );
-
-
-                await A.playCurrent(
-                    false
-                );
-
-
-                return;
-            }
-
-
-            await finishSurah(
-                surah,
-                activeToken
-            );
-        };
-
-
-    /* =====================================================
-       PREVIOUS
-       ===================================================== */
-
-    A.previous =
-        async function () {
-
-            const surah =
-                Q.state.currentSurah;
-
-
-            if (!surah) {
-                return;
-            }
-
-
-            if (
-                Q.state.currentAyahIndex >
-                0
-            ) {
-
-                activeToken++;
-
-                stopSources();
-
-
-                Q.state.isBasmala =
-                    false;
-
-
-                const previous =
-                    Q.state.currentAyahIndex -
-                    1;
-
-
-                await Q.showAyah(
-                    previous,
-                    false
-                );
-
-
-                Q.resetProgress();
-
-                Q.setButton(
-                    false
-                );
-            }
-        };
+        Q.state.isPlaying = false;
+        Q.state.isBasmala = false;
+        Q.setButton(false);
+        Q.resetProgress();
+    };
 
 
     /* =====================================================
        STOP + RESET
        ===================================================== */
 
-    A.stopAndReset =
-        function () {
+    A.stopAndReset = function () {
+        A.stop();
+    };
 
-            A.stop();
 
-            Q.resetProgress();
+    /* =====================================================
+       NEXT
+       ===================================================== */
 
-            Q.setButton(
-                false
-            );
-        };
+    A.next = async function () {
+
+        const surah = Q.state.currentSurah;
+
+        if (!surah) {
+            return;
+        }
+
+        const token = ++activeToken;
+
+        pendingNext = null;
+
+        try {
+            audio.pause();
+        } catch (_) {}
+
+        const next = Q.state.currentAyahIndex + 1;
+
+        if (next < surah.ayahs.length) {
+            await Q.showAyah(next, false);
+            playAyah(surah, next, token);
+        } else {
+            await finishSurah(surah, token);
+        }
+    };
+
+
+    /* =====================================================
+       PREVIOUS
+       ===================================================== */
+
+    A.previous = async function () {
+
+        const surah = Q.state.currentSurah;
+
+        if (!surah || Q.state.currentAyahIndex <= 0) {
+            return;
+        }
+
+        activeToken++;
+        pendingNext = null;
+
+        try {
+            audio.pause();
+        } catch (_) {}
+
+        Q.state.isPlaying = false;
+        Q.setButton(false);
+        Q.resetProgress();
+
+        const prev = Q.state.currentAyahIndex - 1;
+
+        await Q.showAyah(prev, false);
+    };
+
+
+    /* =====================================================
+       COMPAT NO-OPS
+       هذه الدوال كانت جزءًا من محرّك Web Audio.
+       مع <audio> المتصفح يقوم بالتحميل تلقائيًا،
+       لذا نبقيها فارغة حتى لا نعدّل quran-core.js
+       ===================================================== */
+
+    A.preload = function () {};
+    A.prepareFirstForSurah = function () {};
+    A.preloadForSurah = function () {};
+    A.prepareNextSurah = function () {};
+    A.resume = async function () {};
+
+
+    /* =====================================================
+       INIT
+       ===================================================== */
+
+    setupMediaSessionHandlers();
+
 })();
