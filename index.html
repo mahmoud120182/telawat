@@ -212,7 +212,8 @@
 
             padding:
                 clamp(30px, 5vw, 65px)
-                clamp(14px, 4vw, 35px);
+                clamp(14px, 4vw, 35px)
+                calc(clamp(30px, 5vw, 65px) + 96px);
         }
 
         /* =========================================
@@ -824,31 +825,138 @@
         }
 
         /* =========================================
-           Footer
+           Fixed Contact Bar (Always Visible)
         ========================================= */
 
-        footer {
-            text-align: center;
+        .contact-bar {
+            position: fixed;
+            inset: auto 0 0 0;
+            z-index: 60;
 
-            margin-top: 42px;
+            padding:
+                8px 14px
+                calc(8px + env(safe-area-inset-bottom));
 
-            color:
-                rgba(168,179,199,.62);
+            background:
+                linear-gradient(
+                    180deg,
+                    rgba(6,14,26,.78) 0%,
+                    rgba(4,8,17,.96) 100%
+                );
 
-            font-size: .75rem;
+            box-shadow:
+                0 -12px 34px rgba(0,0,0,.5);
 
-            animation:
-                fadeIn 1.2s ease .8s both;
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+
+            animation: barEnter .9s var(--ease) .45s both;
         }
 
-        @keyframes fadeIn {
+        .contact-bar::before {
+            content: "";
+
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+
+            height: 2px;
+
+            background:
+                linear-gradient(
+                    90deg,
+                    transparent,
+                    var(--cyan),
+                    var(--gold),
+                    var(--blue),
+                    transparent
+                );
+
+            opacity: .75;
+
+            box-shadow:
+                0 0 14px rgba(233,200,120,.35);
+        }
+
+        @keyframes barEnter {
             from {
                 opacity: 0;
+                transform: translateY(100%);
             }
 
             to {
                 opacity: 1;
+                transform: translateY(0);
             }
+        }
+
+        .contact-inner {
+            width: min(1180px, 100%);
+            margin: 0 auto;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            gap: 1px;
+
+            text-align: center;
+        }
+
+        .contact-line {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 7px;
+
+            font-size: clamp(.68rem, 2.6vw, .84rem);
+            line-height: 1.55;
+            font-weight: 600;
+
+            color: var(--muted);
+            text-decoration: none;
+
+            transition:
+                color .3s ease,
+                transform .3s ease,
+                text-shadow .3s ease;
+        }
+
+        .contact-line.line-1 {
+            color: #e6ecf7;
+            font-weight: 600;
+        }
+
+        .contact-line.line-2 {
+            color: var(--gold-light);
+            font-weight: 800;
+            letter-spacing: .2px;
+        }
+
+        .contact-line.line-2 i {
+            color: #25d366;
+            font-size: 1.15em;
+
+            filter:
+                drop-shadow(0 0 6px rgba(37,211,102,.55));
+        }
+
+        .contact-line.line-2:hover {
+            color: #fff;
+
+            transform: translateY(-1px);
+
+            text-shadow:
+                0 0 14px rgba(233,200,120,.6);
+        }
+
+        .contact-line.line-3 {
+            color: rgba(170,181,200,.85);
+            font-weight: 600;
+            letter-spacing: .3px;
         }
 
         /* =========================================
@@ -883,7 +991,7 @@
                 padding:
                     max(25px, env(safe-area-inset-top))
                     14px
-                    max(28px, env(safe-area-inset-bottom));
+                    calc(96px + env(safe-area-inset-bottom));
             }
 
             header {
@@ -959,6 +1067,7 @@
             .container {
                 padding-left: 10px;
                 padding-right: 10px;
+                padding-bottom: calc(92px + env(safe-area-inset-bottom));
             }
 
             header h1 {
@@ -992,6 +1101,10 @@
 
                 font-size: .82rem;
             }
+
+            .contact-line {
+                font-size: .66rem;
+            }
         }
 
         /* =========================================
@@ -1002,6 +1115,7 @@
 
             .container {
                 padding-top: 20px;
+                padding-bottom: calc(74px + env(safe-area-inset-bottom));
             }
 
             header {
@@ -1025,6 +1139,17 @@
                 grid-column: auto;
 
                 max-width: none;
+            }
+
+            .contact-bar {
+                padding:
+                    4px 12px
+                    calc(4px + env(safe-area-inset-bottom));
+            }
+
+            .contact-line {
+                font-size: .68rem;
+                line-height: 1.4;
             }
         }
 
@@ -1187,12 +1312,38 @@
 
         </section>
 
-
-        <footer>
-            القرآن الكريم — نورٌ وهداية
-        </footer>
-
     </main>
+
+
+    <!-- =========================================
+         Fixed Contact Bar (Always Visible)
+    ========================================== -->
+    <footer class="contact-bar" role="contentinfo">
+
+        <div class="contact-inner">
+
+            <p class="contact-line line-1">
+                لا تتردد في التواصل لعمل أي تحسينات أو إضافات
+            </p>
+
+            <a
+                class="contact-line line-2"
+                href="https://wa.me/201006855874"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="تواصل عبر واتساب على الرقم 01006855874"
+            >
+                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+                <span>واتساب 01006855874</span>
+            </a>
+
+            <p class="contact-line line-3">
+                شارك في الثواب
+            </p>
+
+        </div>
+
+    </footer>
 
 </body>
 </html>

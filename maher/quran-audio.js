@@ -1,6 +1,6 @@
 /* =========================================================
    QURAN AUDIO ENGINE
-   تشغيل متصل باستخدام Web Audio API
+   تشغيل متصل باستخدام Web Audio API مع دعم Background Playback
    ========================================================= */
 
 (() => {
@@ -18,7 +18,7 @@
 
 
     /* =====================================================
-       WEB AUDIO
+       WEB AUDIO CONTEXT & RESUME ENGINE
        ===================================================== */
 
     let context = null;
@@ -43,6 +43,13 @@
             gain.connect(
                 context.destination
             );
+
+            // Resuming audio context whenever state changes to suspended by the system
+            context.onstatechange = () => {
+                if (context.state === "suspended" && Q.state.isPlaying) {
+                    context.resume();
+                }
+            };
         }
 
 
@@ -65,6 +72,18 @@
                 await ctx.resume();
             }
         };
+
+    // Keep context running when mobile screen state changes / unlocks
+    document.addEventListener("visibilitychange", () => {
+        if (
+            document.visibilityState === "visible" &&
+            context &&
+            context.state === "suspended" &&
+            Q.state.isPlaying
+        ) {
+            context.resume();
+        }
+    });
 
 
     /* =====================================================
@@ -105,14 +124,46 @@
 
 
     /* =====================================================
+       MEDIA SESSION INTEGRATION (LOCK SCREEN CONTROLS)
+       ===================================================== */
+
+    function updateMediaSession(ayah) {
+        if (!('mediaSession' in navigator)) return;
+
+        const surah = Q.state.currentSurah;
+        if (!surah) return;
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: `${surah.name} - الآية ${ayah ? ayah.numberInSurah : 1}`,
+            artist: Q.RECITER.name,
+            album: "القرآن الكريم",
+            artwork: [
+                { src: 'https://cdn-icons-png.flaticon.com/512/3004/3004416.png', sizes: '512x512', type: 'image/png' }
+            ]
+        });
+
+        navigator.mediaSession.setActionHandler('play', () => {
+            A.resume();
+            if (!Q.state.isPlaying) A.toggle();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            if (Q.state.isPlaying) A.toggle();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            A.previous();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            A.next();
+        });
+    }
+
+
+    /* =====================================================
        BASMALA AUDIO
        ===================================================== */
 
     function basmalaUrl() {
 
-        /*
-         * تسجيل ماهر المعيقلي
-         */
         return (
             `${Q.AUDIO_CDN}/` +
             `${Q.RECITER.folder}/` +
@@ -132,9 +183,6 @@
         }
 
 
-        /*
-         * موجود بالفعل في الذاكرة
-         */
         if (
             buffers.has(url)
         ) {
@@ -143,9 +191,6 @@
         }
 
 
-        /*
-         * يتم تحميله حالياً
-         */
         if (
             loading.has(url)
         ) {
@@ -269,9 +314,6 @@
             }
 
 
-            /*
-             * البسملة
-             */
             if (
                 Q.shouldShowBasmala(n)
             ) {
@@ -282,9 +324,6 @@
             }
 
 
-            /*
-             * أول 4 آيات
-             */
             for (
                 let i = 1;
                 i <= 4;
@@ -316,12 +355,6 @@
             }
 
 
-            /*
-             * تجهيز 4 آيات قادمة.
-             *
-             * هذا مهم جداً حتى لا ننتظر
-             * الشبكة عند نهاية الآية.
-             */
             for (
                 let i = index;
                 i <
@@ -365,10 +398,6 @@
             }
 
 
-            /*
-             * تحميل بيانات السورة
-             * في الخلفية.
-             */
             Q.getSurahData(n)
                 .then(
                     data => {
@@ -385,9 +414,6 @@
                         }
 
 
-                        /*
-                         * تجهيز أول عدة آيات.
-                         */
                         const ayahs =
                             data?.ayahs || [];
 
@@ -505,6 +531,10 @@
 
             Q.state.isBasmala =
                 false;
+
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = "paused";
+            }
         };
 
 
@@ -535,10 +565,6 @@
         );
 
 
-        /*
-         * حذف المرجع من قائمة المصادر
-         * بعد انتهاء تشغيله.
-         */
         source.onended =
             () => {
 
@@ -738,6 +764,8 @@
                 console.error
             );
         }
+
+        updateMediaSession(ayah);
     }
 
 
@@ -773,10 +801,6 @@
             );
 
 
-        /*
-         * إذا لم يكن الصوت جاهزاً
-         * سيتم تحميله الآن.
-         */
         const buffer =
             await loadBuffer(
                 url
@@ -810,6 +834,10 @@
         Q.state.isPlaying =
             true;
 
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = "playing";
+        }
+
 
         Q.setButton(
             true
@@ -819,19 +847,12 @@
         startProgressTimer();
 
 
-        /*
-         * تجهيز عدة آيات قادمة.
-         */
         A.preloadForSurah(
             surah,
             index
         );
 
 
-        /*
-         * جدولة الآية التالية
-         * عند نهاية الآية الحالية.
-         */
         scheduleAyahTransition(
             result.endAt,
             surah,
@@ -848,18 +869,11 @@
        BASMALA + FIRST AYAH
        ===================================================== */
 
-/* =====================================================
-       BASMALA + FIRST AYAH
-       ===================================================== */
-
     async function playBasmalaThenFirst(
         surah,
         token
     ) {
 
-        /*
-         * الفاتحة والتوبة
-         */
         if (
             !Q.shouldShowBasmala(
                 surah.number
@@ -875,9 +889,6 @@
             );
         }
 
-        /*
-         * التحقق من وجود ملف البسملة 001001.mp3 قبل تشغيله
-         */
         let hasBasmalaFile = true;
         try {
             const basmalaCheck = await fetch(basmalaUrl(), { method: "HEAD" });
@@ -888,9 +899,6 @@
             hasBasmalaFile = false;
         }
 
-        /*
-         * إذا لم يكن الملف موجوداً، قم بتخطي البسملة وتشغيل الآية الأولى مباشرة
-         */
         if (!hasBasmalaFile) {
             console.warn("الملف 001001.mp3 غير موجود، يتم تخطي البسملة.");
             Q.state.isBasmala = false;
@@ -904,9 +912,6 @@
         }
 
 
-        /*
-         * تحميل البسملة.
-         */
         const basmalaBuffer =
             await loadBuffer(
                 basmalaUrl()
@@ -921,10 +926,6 @@
         }
 
 
-        /*
-         * تحميل أول آية
-         * قبل بدء البسملة.
-         */
         const firstAyah =
             surah.ayahs[0];
 
@@ -957,9 +958,6 @@
             getContext();
 
 
-        /*
-         * البسملة تبدأ فوراً.
-         */
         const basmalaResult =
             startBuffer(
                 basmalaBuffer,
@@ -979,6 +977,10 @@
         Q.state.isPlaying =
             true;
 
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = "playing";
+        }
+
 
         Q.setButton(
             true
@@ -988,12 +990,6 @@
         startProgressTimer();
 
 
-        /*
-         * أهم نقطة:
-         *
-         * أول آية يتم جدولتها مسبقاً
-         * عند نهاية البسملة مباشرة.
-         */
         const ayahStart =
             basmalaResult.endAt;
 
@@ -1019,9 +1015,6 @@
         };
 
 
-        /*
-         * تغيير التظليل لحظة بدء الآية.
-         */
         const visualDelay =
             Math.max(
                 0,
@@ -1080,18 +1073,12 @@
             );
 
 
-        /*
-         * تجهيز الآيات التالية.
-         */
         A.preloadForSurah(
             surah,
             0
         );
 
 
-        /*
-         * جدولة الآية الثانية.
-         */
         scheduleAyahTransition(
             ayahResult.endAt,
             surah,
@@ -1132,9 +1119,6 @@
             index + 1;
 
 
-        /*
-         * ما زالت هناك آيات.
-         */
         if (
             nextIndex <
             surah.ayahs.length
@@ -1146,10 +1130,6 @@
                 ];
 
 
-            /*
-             * الصوت التالي يجب أن يكون
-             * decoded قبل نهاية الحالي.
-             */
             loadBuffer(
                 Q.getAyahAudioUrl(
                     nextAyah,
@@ -1171,9 +1151,6 @@
                             ctx.currentTime;
 
 
-                        /*
-                         * جاهز قبل نهاية الآية.
-                         */
                         if (
                             now <
                             endAt -
@@ -1271,9 +1248,6 @@
                         }
 
 
-                        /*
-                         * Fallback في حالة الشبكة البطيئة.
-                         */
                         transitionTimer =
                             setTimeout(
                                 () => {
@@ -1325,11 +1299,6 @@
         }
 
 
-        /*
-         * آخر آية.
-         *
-         * نجهز السورة التالية.
-         */
         A.prepareNextSurah(
             surah.number + 1
         );
@@ -1440,16 +1409,16 @@
                 false
             );
 
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = "paused";
+            }
+
             return;
         }
 
 
         try {
 
-            /*
-             * السورة التالية تم تجهيز بياناتها
-             * مسبقاً غالباً.
-             */
             const nextSurah =
                 await Q.prepareSurah(
                     nextNumber
@@ -1489,9 +1458,6 @@
                 nextSurah.ayahs[0];
 
 
-            /*
-             * الصفحة + الصوت معاً.
-             */
             const pagePromise =
                 Q.getPageData(
                     first.page
@@ -1529,18 +1495,12 @@
             }
 
 
-            /*
-             * البسملة + أول آية.
-             */
             await playBasmalaThenFirst(
                 nextSurah,
                 token
             );
 
 
-            /*
-             * تجهيز السورة التي بعدها.
-             */
             A.prepareNextSurah(
                 nextNumber + 1
             );
@@ -1553,9 +1513,6 @@
             );
 
 
-            /*
-             * محاولة احتياطية.
-             */
             try {
 
                 await Q.loadSurah(
@@ -1610,10 +1567,6 @@
             Q.resetProgress();
 
 
-            /*
-             * البسملة عند بداية السورة.
-             */
-            
             if (
                 includeBasmala &&
                 index === 0 &&
@@ -1662,9 +1615,6 @@
                 Q.state.isPlaying
             ) {
 
-                /*
-                 * عند الإيقاف نوقف كل المصادر المجدولة.
-                 */
                 A.stop();
 
                 Q.resetProgress();
@@ -1677,9 +1627,6 @@
             }
 
 
-            /*
-             * التشغيل يبدأ من الآية الحالية.
-             */
             await A.playCurrent(
                 Q.state.currentAyahIndex === 0
             );
