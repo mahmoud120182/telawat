@@ -30,6 +30,7 @@
 
         /* =================================================
            AUDIO ELEMENT — iOS / Android background fix
+           ✅ تم إزالة crossorigin
            ================================================= */
 
         if (Q.dom.audio) {
@@ -37,7 +38,7 @@
             Q.dom.audio.setAttribute("playsinline", "");
             Q.dom.audio.setAttribute("webkit-playsinline", "");
             Q.dom.audio.setAttribute("preload", "auto");
-            Q.dom.audio.setAttribute("crossorigin", "anonymous");
+            Q.dom.audio.setAttribute("x-webkit-airplay", "allow");
         }
 
 
@@ -231,13 +232,7 @@
 
         /* =================================================
            KEYBOARD
-
-           Space = تشغيل / إيقاف فقط
-
-           تم إلغاء:
-           ArrowLeft  = الآية السابقة
-           ArrowRight = الآية التالية
-        ================================================= */
+           ================================================= */
 
         document.addEventListener(
             "keydown",
@@ -247,10 +242,6 @@
                     document.activeElement?.tagName;
 
 
-                /*
-                 * لا نتدخل أثناء الكتابة أو
-                 * اختيار السورة.
-                 */
                 if (
                     tag === "INPUT" ||
                     tag === "TEXTAREA" ||
@@ -261,10 +252,6 @@
                 }
 
 
-                /*
-                 * Space
-                 * تشغيل / إيقاف
-                 */
                 if (
                     event.code === "Space"
                 ) {
@@ -279,7 +266,6 @@
 
         /* =================================================
            VISIBILITY CHANGE
-           الحفاظ على تزامن MediaSession مع حالة التشغيل
            ================================================= */
 
         document.addEventListener(

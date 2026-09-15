@@ -32,8 +32,6 @@
 
     /* =====================================================
        BASMALA URL
-       نستخدم أول آية من الفاتحة (001001.mp3)
-       لأنها البسملة وهي متوفرة دائمًا في everyayah.
        ===================================================== */
 
     function basmalaUrl() {
@@ -99,10 +97,6 @@
 
     audio.addEventListener("error", () => {
 
-        /*
-         * تجاهل الأخطاء الناتجة عن إفراغ src
-         * عند الإيقاف.
-         */
         if (!audio.src || audio.src === window.location.href) {
             return;
         }
@@ -132,10 +126,6 @@
                         : ""
                 });
 
-            /*
-             * مهم جدًا: إعلان حالة التشغيل صراحة
-             * حتى يعرف النظام أن الجلسة نشطة.
-             */
             navigator.mediaSession.playbackState =
                 Q.state.isPlaying ? "playing" : "paused";
 
@@ -152,8 +142,7 @@
         try {
 
             /* -----------------------------------------
-               PLAY — لا نعيد التشغيل من الصفر إذا
-               كان الصوت جاهزًا، بل نكمل من نفس الجلسة.
+               PLAY
                ----------------------------------------- */
             navigator.mediaSession.setActionHandler(
                 "play",
@@ -165,7 +154,6 @@
 
                         if (p && typeof p.catch === "function") {
                             p.catch(() => {
-                                /* احتياط: أعد التشغيل عبر المسار الكامل */
                                 A.playCurrent(
                                     Q.state.currentAyahIndex === 0
                                 );
@@ -184,7 +172,7 @@
             );
 
             /* -----------------------------------------
-               PAUSE — إيقاف مؤقت فقط بدون reset
+               PAUSE
                ----------------------------------------- */
             navigator.mediaSession.setActionHandler(
                 "pause",
@@ -225,6 +213,7 @@
 
     /* =====================================================
        VISUAL AYAH
+       ⚠️ تم نقل updateMediaSession إلى الأعلى
        ===================================================== */
 
     function setVisualAyah(index) {
@@ -243,6 +232,9 @@
             return;
         }
 
+        /* ✅ مهم: نحدّث MediaSession أولاً قبل أي عمل DOM */
+        updateMediaSession(surah, ayah);
+
         if (Q.dom.ayahCounter) {
             Q.dom.ayahCounter.textContent =
                 `الآية ${ayah.numberInSurah} • الصفحة ${ayah.page}`;
@@ -254,8 +246,6 @@
             Q.renderPageForAyah(ayah)
                 .catch(console.error);
         }
-
-        updateMediaSession(surah, ayah);
     }
 
 
@@ -269,12 +259,6 @@
             return;
         }
 
-        /*
-         * مهم جدًا للموبايل:
-         * لا نستدعي audio.load() — لأن ذلك يقطع
-         * جلسة الوسائط (Media Session) على أندرويد و iOS.
-         * تعيين src مباشرة يكفي لتحميل المصدر الجديد.
-         */
         if (audio.src !== url) {
             audio.src = url;
         } else {
@@ -295,6 +279,36 @@
                 setPlaybackState("paused");
             });
         }
+    }
+
+
+    /* =====================================================
+       PRELOAD NEXT AYAH
+       ✅ جديد: تحميل مسبق حتى لا ينقطع الصوت في السكون
+       ===================================================== */
+
+    function preloadNextAyah(surah, nextIndex) {
+
+        if (!surah || nextIndex >= surah.ayahs.length) {
+            return;
+        }
+
+        const next = surah.ayahs[nextIndex];
+        if (!next) {
+            return;
+        }
+
+        const url = Q.getAyahAudioUrl(next, surah.number);
+        if (!url) {
+            return;
+        }
+
+        try {
+            fetch(url, {
+                cache: "force-cache",
+                mode: "no-cors"
+            }).catch(() => {});
+        } catch (_) {}
     }
 
 
@@ -335,6 +349,7 @@
 
     /* =====================================================
        PLAY AYAH
+       ✅ تم تصحيح ترتيب ضبط الحالة
        ===================================================== */
 
     function playAyah(surah, index, token) {
@@ -349,12 +364,17 @@
 
         const ayah = surah.ayahs[index];
 
-        setVisualAyah(index);
-
+        /* ✅ FIX: اضبط الحالة BEFORE setVisualAyah
+           حتى يقرأ updateMediaSession القيمة الصحيحة */
         mode = "ayah";
         Q.state.isBasmala = false;
         Q.state.isPlaying = true;
         Q.setButton(true);
+
+        /* إبلاغ النظام أن التشغيل فعّال قبل أي شيء */
+        setPlaybackState("playing");
+
+        setVisualAyah(index);
 
         playUrl(
             Q.getAyahAudioUrl(ayah, surah.number)
@@ -367,13 +387,15 @@
             token
         };
 
+        /* ✅ تحميل مسبق للآية التالية */
+        preloadNextAyah(surah, index + 1);
+
         return true;
     }
 
 
     /* =====================================================
        BASMALA + FIRST AYAH
-       مع فحص وجود ملف البسملة قبل تشغيله
        ===================================================== */
 
     async function playBasmalaThenFirst(surah, token) {
@@ -400,15 +422,10 @@
             hasBasmalaFile = false;
         }
 
-        /* تجنّب التشغيل القديم إذا تغيّر token */
         if (token !== activeToken) {
             return false;
         }
 
-        /* ==========================================
-           إذا لم يوجد الملف: تخطّي البسملة
-           والانتقال مباشرة لأول آية
-           ========================================== */
         if (!hasBasmalaFile) {
             console.warn(
                 "ملف البسملة غير موجود — يتم تخطّي البسملة والبدء بالآية الأولى."
@@ -420,13 +437,15 @@
 
         /* ==========================================
            تشغيل البسملة بشكل طبيعي
+           ✅ FIX: اضبط الحالة قبل setVisualAyah
            ========================================== */
-        setVisualAyah(0);
-
         mode = "basmala";
         Q.state.isBasmala = true;
         Q.state.isPlaying = true;
         Q.setButton(true);
+        setPlaybackState("playing");
+
+        setVisualAyah(0);
 
         playUrl(basmalaUrl());
 
@@ -435,6 +454,9 @@
             surah,
             token
         };
+
+        /* تحميل مسبق للآية الأولى */
+        preloadNextAyah(surah, 0);
 
         return true;
     }
@@ -511,12 +533,6 @@
         const surah = Q.state.currentSurah;
         const index = Q.state.currentAyahIndex;
 
-        /*
-         * إيقاف أي تشغيل سابق.
-         * ملاحظة: لا نستدعي audio.pause() هنا لأن ذلك
-         * يفصل جلسة الوسائط على الموبايل — تعيين src جديد
-         * في playUrl يتكفّل بإيقاف المقطع السابق.
-         */
         pendingNext = null;
 
         Q.resetProgress();
@@ -603,11 +619,6 @@
 
         pendingNext = null;
 
-        /*
-         * لا نستدعي audio.pause() — playUrl سيتعامل
-         * مع تغيير المصدر مباشرة.
-         */
-
         const next = Q.state.currentAyahIndex + 1;
 
         if (next < surah.ayahs.length) {
@@ -651,9 +662,6 @@
 
     /* =====================================================
        COMPAT NO-OPS
-       هذه الدوال كانت جزءًا من محرّك Web Audio.
-       مع <audio> المتصفح يقوم بالتحميل تلقائيًا،
-       لذا نبقيها فارغة حتى لا نعدّل quran-core.js
        ===================================================== */
 
     A.preload = function () {};
@@ -661,6 +669,22 @@
     A.preloadForSurah = function () {};
     A.prepareNextSurah = function () {};
     A.resume = async function () {};
+
+
+    /* =====================================================
+       KEEP MEDIA SESSION ALIVE
+       ✅ جديد: إبقاء الجلسة نشطة عند دخول الصفحة للسكون
+       ===================================================== */
+
+    document.addEventListener("visibilitychange", () => {
+
+        if (document.visibilityState === "hidden") {
+
+            if (Q.state.isPlaying) {
+                setPlaybackState("playing");
+            }
+        }
+    });
 
 
     /* =====================================================
