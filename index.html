@@ -1,1349 +1,178 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>القرآن الكريم - القراءة والاستماع</title>
 
-    <title>وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
-    <style>
-        :root {
-            --bg-1: #040711;
-            --bg-2: #071326;
-            --bg-3: #061d20;
-
-            --gold: #e9c878;
-            --gold-light: #fff1b0;
-            --gold-dark: #9d7930;
-
-            --cyan: #36e0c0;
-            --blue: #36a3ff;
-            --purple: #8b5cf6;
-
-            --text: #ffffff;
-            --muted: #aab5c8;
-
-            --glass: rgba(255, 255, 255, 0.055);
-            --glass-border: rgba(255, 255, 255, 0.11);
-
-            --ease: cubic-bezier(.2, .8, .2, 1);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: "Cairo", sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            min-height: 100vh;
-            color: var(--text);
-            overflow-x: hidden;
-            position: relative;
-
-            background:
-                radial-gradient(circle at 10% 10%, rgba(54,224,192,.12), transparent 28%),
-                radial-gradient(circle at 90% 15%, rgba(54,163,255,.12), transparent 28%),
-                radial-gradient(circle at 50% 100%, rgba(139,92,246,.10), transparent 32%),
-                linear-gradient(145deg, var(--bg-1), var(--bg-2) 50%, var(--bg-3));
-        }
-
-        /* =========================================
-           Animated Background
-        ========================================= */
-
-        body::before,
-        body::after {
-            content: "";
-            position: fixed;
-            width: 430px;
-            height: 430px;
-            border-radius: 50%;
-            pointer-events: none;
-            filter: blur(85px);
-            opacity: .25;
-            z-index: -2;
-        }
-
-        body::before {
-            top: -190px;
-            right: -150px;
-            background: #16d9ba;
-            animation: orbOne 13s ease-in-out infinite alternate;
-        }
-
-        body::after {
-            bottom: -190px;
-            left: -150px;
-            background: #347cff;
-            animation: orbTwo 16s ease-in-out infinite alternate;
-        }
-
-        @keyframes orbOne {
-            from {
-                transform: translate(0, 0) scale(1);
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              900: '#064e3b',
+              950: '#022c22'
             }
-
-            to {
-                transform: translate(-80px, 90px) scale(1.3);
-            }
-        }
-
-        @keyframes orbTwo {
-            from {
-                transform: translate(0, 0) scale(1);
-            }
-
-            to {
-                transform: translate(100px, -80px) scale(1.3);
-            }
-        }
-
-        /* =========================================
-           Islamic Background Pattern
-        ========================================= */
-
-        .islamic-pattern {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: -1;
-            opacity: .035;
-
-            background-image:
-                linear-gradient(30deg, rgba(255,255,255,.5) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,.5) 87.5%, rgba(255,255,255,.5)),
-                linear-gradient(150deg, rgba(255,255,255,.5) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,.5) 87.5%, rgba(255,255,255,.5)),
-                linear-gradient(30deg, rgba(255,255,255,.5) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,.5) 87.5%, rgba(255,255,255,.5)),
-                linear-gradient(150deg, rgba(255,255,255,.5) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,.5) 87.5%, rgba(255,255,255,.5)),
-                linear-gradient(60deg, rgba(255,255,255,.4) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,.4) 75%);
-
-            background-size: 80px 140px;
-            background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0;
-        }
-
-        /* =========================================
-           Stars
-        ========================================= */
-
-        .stars {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        .stars span {
-            position: absolute;
-            width: 3px;
-            height: 3px;
-            border-radius: 50%;
-            background: rgba(255,255,255,.5);
-            box-shadow: 0 0 10px rgba(255,255,255,.4);
-            animation: twinkle 4s ease-in-out infinite;
-        }
-
-        .stars span:nth-child(1) {
-            top: 12%;
-            left: 8%;
-            animation-delay: .5s;
-        }
-
-        .stars span:nth-child(2) {
-            top: 25%;
-            left: 80%;
-            animation-delay: 1.2s;
-        }
-
-        .stars span:nth-child(3) {
-            top: 61%;
-            left: 17%;
-            animation-delay: 2s;
-        }
-
-        .stars span:nth-child(4) {
-            top: 75%;
-            left: 88%;
-            animation-delay: 1.7s;
-        }
-
-        .stars span:nth-child(5) {
-            top: 42%;
-            left: 49%;
-            animation-delay: 3s;
-        }
-
-        .stars span:nth-child(6) {
-            top: 88%;
-            left: 57%;
-            animation-delay: .9s;
-        }
-
-        @keyframes twinkle {
-            0%, 100% {
-                opacity: .15;
-                transform: scale(.7);
-            }
-
-            50% {
-                opacity: .9;
-                transform: scale(1.5);
-            }
-        }
-
-        /* =========================================
-           Container
-        ========================================= */
-
-        .container {
-            width: min(1180px, 100%);
-            margin: auto;
-
-            padding:
-                clamp(30px, 5vw, 65px)
-                clamp(14px, 4vw, 35px)
-                calc(clamp(30px, 5vw, 65px) + 96px);
-        }
-
-        /* =========================================
-           Header
-        ========================================= */
-
-        header {
-            text-align: center;
-            margin-bottom: clamp(35px, 5vw, 55px);
-
-            animation: headerEnter 1s var(--ease) both;
-        }
-
-        @keyframes headerEnter {
-            from {
-                opacity: 0;
-                transform: translateY(-25px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* =========================================
-           Islamic Decorative Frame
-        ========================================= */
-
-        .title-decoration {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-
-            margin-bottom: 18px;
-
-            color: var(--gold);
-
-            font-size: clamp(18px, 4vw, 27px);
-        }
-
-        .title-decoration .line {
-            width: clamp(35px, 10vw, 100px);
-            height: 1px;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    transparent,
-                    var(--gold),
-                    transparent
-                );
-
-            box-shadow:
-                0 0 10px rgba(233,200,120,.35);
-        }
-
-        .title-decoration .diamond {
-            width: 9px;
-            height: 9px;
-
-            transform: rotate(45deg);
-
-            border: 1px solid var(--gold);
-
-            box-shadow:
-                0 0 12px rgba(233,200,120,.5);
-        }
-
-        /* =========================================
-           Main Quran Title
-        ========================================= */
-
-        header h1 {
-            font-family: "Amiri", serif;
-
-            font-size:
-                clamp(2.1rem, 8vw, 4.1rem);
-
-            line-height: 1.45;
-
-            font-weight: 700;
-
-            letter-spacing: .2px;
-
-            position: relative;
-
-            background:
-                linear-gradient(
-                    120deg,
-                    #fff8d6 0%,
-                    #e9c878 25%,
-                    #fff4c0 50%,
-                    #c99b43 75%,
-                    #fff5c8 100%
-                );
-
-            background-size: 250% auto;
-
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-
-            filter:
-                drop-shadow(0 8px 20px rgba(233,200,120,.17));
-
-            animation:
-                titleShimmer 6s linear infinite,
-                titleFloat 4s ease-in-out infinite;
-        }
-
-        @keyframes titleShimmer {
-            to {
-                background-position: 250% center;
-            }
-        }
-
-        @keyframes titleFloat {
-            0%, 100% {
-                transform: translateY(0);
-            }
-
-            50% {
-                transform: translateY(-3px);
-            }
-        }
-
-        /* =========================================
-           Subtitle
-        ========================================= */
-
-        header p {
-            color: var(--muted);
-
-            font-size:
-                clamp(.82rem, 2.5vw, 1.02rem);
-
-            line-height: 1.9;
-
-            max-width: 650px;
-
-            margin: 8px auto 0;
-
-            padding: 0 10px;
-        }
-
-        /* =========================================
-           Decorative Divider
-        ========================================= */
-
-        .header-line {
-            width: min(260px, 65%);
-
-            height: 2px;
-
-            margin: 21px auto 0;
-
-            border-radius: 100px;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    transparent,
-                    var(--cyan),
-                    var(--gold),
-                    var(--blue),
-                    transparent
-                );
-
-            box-shadow:
-                0 0 18px rgba(54,224,192,.25);
-        }
-
-        /* =========================================
-           Grid
-        ========================================= */
-
-        .grid {
-            display: grid;
-
-            grid-template-columns:
-                repeat(3, minmax(0, 1fr));
-
-            gap: clamp(16px, 2.5vw, 27px);
-        }
-
-        /* =========================================
-           Card
-        ========================================= */
-
-        .card {
-            position: relative;
-            overflow: hidden;
-
-            padding:
-                clamp(22px, 3vw, 30px)
-                clamp(17px, 2.5vw, 26px);
-
-            text-align: center;
-
-            border-radius: 30px;
-
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(255,255,255,.085),
-                    rgba(255,255,255,.025)
-                );
-
-            border:
-                1px solid var(--glass-border);
-
-            box-shadow:
-                0 25px 70px rgba(0,0,0,.42),
-                inset 0 1px 0 rgba(255,255,255,.08);
-
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-
-            opacity: 0;
-
-            transform: translateY(35px);
-
-            animation:
-                cardEnter .8s var(--ease) forwards;
-
-            transition:
-                transform .45s var(--ease),
-                border-color .45s ease,
-                box-shadow .45s ease;
-        }
-
-        .card:nth-child(1) {
-            animation-delay: .15s;
-        }
-
-        .card:nth-child(2) {
-            animation-delay: .28s;
-        }
-
-        .card:nth-child(3) {
-            animation-delay: .41s;
-        }
-
-        @keyframes cardEnter {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .card::before {
-            content: "";
-
-            position: absolute;
-
-            width: 190px;
-            height: 190px;
-
-            top: -110px;
-            right: -80px;
-
-            border-radius: 50%;
-
-            background:
-                radial-gradient(
-                    circle,
-                    rgba(54,224,192,.21),
-                    transparent 70%
-                );
-
-            filter: blur(10px);
-
-            pointer-events: none;
-        }
-
-        .card::after {
-            content: "";
-
-            position: absolute;
-
-            top: 0;
-            left: -130%;
-
-            width: 70%;
-            height: 100%;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    transparent,
-                    rgba(255,255,255,.10),
-                    transparent
-                );
-
-            transform: skewX(-20deg);
-
-            transition: left .8s ease;
-
-            pointer-events: none;
-        }
-
-        .card:hover::after {
-            left: 140%;
-        }
-
-        .card:hover {
-            transform:
-                translateY(-10px)
-                scale(1.015);
-
-            border-color:
-                rgba(54,224,192,.38);
-
-            box-shadow:
-                0 35px 80px rgba(0,0,0,.48),
-                0 0 35px rgba(54,224,192,.10),
-                inset 0 1px 0 rgba(255,255,255,.13);
-        }
-
-        /* =========================================
-           Sheikh Image
-        ========================================= */
-
-        .sheikh-img-container {
-            width:
-                clamp(105px, 12vw, 140px);
-
-            height:
-                clamp(105px, 12vw, 140px);
-
-            margin:
-                0 auto 22px;
-
-            padding: 4px;
-
-            border-radius: 50%;
-
-            position: relative;
-
-            background:
-                conic-gradient(
-                    from 0deg,
-                    var(--cyan),
-                    var(--blue),
-                    var(--purple),
-                    var(--gold),
-                    var(--cyan)
-                );
-
-            box-shadow:
-                0 15px 35px rgba(0,0,0,.35),
-                0 0 35px rgba(54,224,192,.14);
-
-            animation:
-                ringRotate 9s linear infinite;
-        }
-
-        @keyframes ringRotate {
-            to {
-                filter: hue-rotate(360deg);
-            }
-        }
-
-        .sheikh-img-container::before {
-            content: "";
-
-            position: absolute;
-
-            inset: -7px;
-
-            border-radius: 50%;
-
-            border:
-                1px solid rgba(233,200,120,.18);
-
-            animation:
-                ringPulse 3s ease-in-out infinite;
-        }
-
-        @keyframes ringPulse {
-            0%, 100% {
-                transform: scale(1);
-                opacity: .2;
-            }
-
-            50% {
-                transform: scale(1.08);
-                opacity: .7;
-            }
-        }
-
-        .sheikh-img {
-            display: block;
-
-            width: 100%;
-            height: 100%;
-
-            border-radius: 50%;
-
-            object-fit: cover;
-
-            background:
-                linear-gradient(
-                    145deg,
-                    #142238,
-                    #071018
-                );
-
-            border:
-                3px solid #08101c;
+          }
         }
+      }
+    }
+  </script>
 
-        /* =========================================
-           Card Text
-        ========================================= */
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-        .card h3 {
-            font-size:
-                clamp(1.05rem, 2vw, 1.35rem);
+  <!-- Google Fonts: Cairo + Amiri Quran -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-            font-weight: 800;
-
-            margin-bottom: 7px;
-
-            color: #fff;
-
-            text-shadow:
-                0 5px 18px rgba(0,0,0,.3);
-        }
-
-        .card p.role {
-            color: var(--muted);
-
-            font-size:
-                clamp(.78rem, 1.8vw, .9rem);
-
-            min-height: 28px;
-
-            margin-bottom: 22px;
-        }
-
-        /* =========================================
-           Buttons
-        ========================================= */
-
-        .btn {
-            width: 100%;
-            min-height: 50px;
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            gap: 10px;
-
-            border-radius: 16px;
-
-            text-decoration: none;
-
-            font-size: .92rem;
-            font-weight: 700;
-
-            color: #fff;
-
-            position: relative;
-
-            overflow: hidden;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #19cfae 0%,
-                    #2499ff 55%,
-                    #5965ff 100%
-                );
-
-            background-size: 200% 200%;
-
-            border:
-                1px solid rgba(255,255,255,.15);
-
-            box-shadow:
-                0 10px 25px rgba(30,160,220,.20),
-                inset 0 1px 0 rgba(255,255,255,.25);
-
-            transition:
-                transform .25s ease,
-                box-shadow .25s ease,
-                background-position .5s ease;
-        }
-
-        .btn::before {
-            content: "";
-
-            position: absolute;
-
-            inset: 0;
-
-            background:
-                linear-gradient(
-                    110deg,
-                    transparent 20%,
-                    rgba(255,255,255,.3),
-                    transparent 80%
-                );
-
-            transform: translateX(-120%);
-
-            transition:
-                transform .7s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-3px);
-
-            background-position:
-                100% 50%;
-
-            box-shadow:
-                0 16px 35px rgba(30,160,220,.28),
-                0 0 20px rgba(54,224,192,.14),
-                inset 0 1px 0 rgba(255,255,255,.3);
-        }
-
-        .btn:hover::before {
-            transform: translateX(120%);
-        }
-
-        .btn:active {
-            transform: scale(.97);
-        }
-
-        .btn i {
-            font-size: .85rem;
-
-            transition:
-                transform .3s ease;
-        }
-
-        .btn:hover i {
-            transform:
-                translateX(-5px);
-        }
-
-        /* =========================================
-           Coming Soon
-        ========================================= */
-
-        .card.coming-soon {
-            opacity: .72;
-        }
-
-        .card.coming-soon:hover {
-            transform: translateY(-4px);
-        }
-
-        .card.coming-soon .sheikh-img-container {
-            filter: grayscale(.9);
-            opacity: .72;
-        }
-
-        .badge-soon {
-            width: 100%;
-            min-height: 50px;
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            gap: 9px;
-
-            border-radius: 16px;
-
-            color: #ffd76a;
-
-            font-size: .88rem;
-            font-weight: 700;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    rgba(255,193,7,.09),
-                    rgba(255,255,255,.025)
-                );
-
-            border:
-                1px dashed rgba(255,210,90,.3);
-
-            box-shadow:
-                inset 0 1px 0 rgba(255,255,255,.05);
-        }
-
-        .badge-soon i {
-            animation:
-                clockPulse 1.8s ease-in-out infinite;
-        }
-
-        @keyframes clockPulse {
-            0%, 100% {
-                transform: rotate(0);
-            }
-
-            50% {
-                transform: rotate(12deg);
-            }
-        }
-
-        /* =========================================
-           Fixed Contact Bar (Always Visible)
-        ========================================= */
-
-        .contact-bar {
-            position: fixed;
-            inset: auto 0 0 0;
-            z-index: 60;
-
-            padding:
-                8px 14px
-                calc(8px + env(safe-area-inset-bottom));
-
-            background:
-                linear-gradient(
-                    180deg,
-                    rgba(6,14,26,.78) 0%,
-                    rgba(4,8,17,.96) 100%
-                );
-
-            box-shadow:
-                0 -12px 34px rgba(0,0,0,.5);
-
-            backdrop-filter: blur(18px) saturate(140%);
-            -webkit-backdrop-filter: blur(18px) saturate(140%);
-
-            animation: barEnter .9s var(--ease) .45s both;
-        }
-
-        .contact-bar::before {
-            content: "";
-
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-
-            height: 2px;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    transparent,
-                    var(--cyan),
-                    var(--gold),
-                    var(--blue),
-                    transparent
-                );
-
-            opacity: .75;
-
-            box-shadow:
-                0 0 14px rgba(233,200,120,.35);
-        }
-
-        @keyframes barEnter {
-            from {
-                opacity: 0;
-                transform: translateY(100%);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .contact-inner {
-            width: min(1180px, 100%);
-            margin: 0 auto;
-
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-
-            gap: 1px;
-
-            text-align: center;
-        }
-
-        .contact-line {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            gap: 7px;
-
-            font-size: clamp(.68rem, 2.6vw, .84rem);
-            line-height: 1.55;
-            font-weight: 600;
-
-            color: var(--muted);
-            text-decoration: none;
-
-            transition:
-                color .3s ease,
-                transform .3s ease,
-                text-shadow .3s ease;
-        }
-
-        .contact-line.line-1 {
-            color: #e6ecf7;
-            font-weight: 600;
-        }
-
-        .contact-line.line-2 {
-            color: var(--gold-light);
-            font-weight: 800;
-            letter-spacing: .2px;
-        }
-
-        .contact-line.line-2 i {
-            color: #25d366;
-            font-size: 1.15em;
-
-            filter:
-                drop-shadow(0 0 6px rgba(37,211,102,.55));
-        }
-
-        .contact-line.line-2:hover {
-            color: #fff;
-
-            transform: translateY(-1px);
-
-            text-shadow:
-                0 0 14px rgba(233,200,120,.6);
-        }
-
-        .contact-line.line-3 {
-            color: rgba(170,181,200,.85);
-            font-weight: 600;
-            letter-spacing: .3px;
-        }
-
-        /* =========================================
-           Tablets
-        ========================================= */
-
-        @media (max-width: 900px) {
-
-            .grid {
-                grid-template-columns:
-                    repeat(2, minmax(0, 1fr));
-            }
-
-            .card:last-child {
-                grid-column: 1 / -1;
-
-                max-width: 430px;
-
-                width: 100%;
-
-                margin: auto;
-            }
-        }
-
-        /* =========================================
-           Mobile
-        ========================================= */
-
-        @media (max-width: 600px) {
-
-            .container {
-                padding:
-                    max(25px, env(safe-area-inset-top))
-                    14px
-                    calc(96px + env(safe-area-inset-bottom));
-            }
-
-            header {
-                margin-bottom: 30px;
-            }
-
-            .title-decoration {
-                margin-bottom: 10px;
-            }
-
-            header h1 {
-                font-size:
-                    clamp(2rem, 10vw, 2.65rem);
-
-                line-height: 1.55;
-            }
-
-            header p {
-                font-size: .80rem;
-            }
-
-            .grid {
-                grid-template-columns: 1fr;
-
-                gap: 16px;
-            }
-
-            .card,
-            .card:last-child {
-                grid-column: auto;
-
-                max-width: none;
-
-                width: 100%;
-            }
-
-            .card {
-                border-radius: 25px;
-
-                padding:
-                    24px 18px;
-            }
-
-            .sheikh-img-container {
-                width: 108px;
-                height: 108px;
-
-                margin-bottom: 19px;
-            }
-
-            .card h3 {
-                font-size: 1.1rem;
-            }
-
-            .card p.role {
-                margin-bottom: 18px;
-            }
-
-            .btn,
-            .badge-soon {
-                min-height: 52px;
-
-                border-radius: 15px;
-            }
-        }
-
-        /* =========================================
-           Very Small Phones
-        ========================================= */
-
-        @media (max-width: 360px) {
-
-            .container {
-                padding-left: 10px;
-                padding-right: 10px;
-                padding-bottom: calc(92px + env(safe-area-inset-bottom));
-            }
-
-            header h1 {
-                font-size: 1.85rem;
-            }
-
-            header p {
-                font-size: .74rem;
-            }
-
-            .title-decoration .line {
-                width: 30px;
-            }
-
-            .card {
-                padding: 21px 14px;
-            }
-
-            .sheikh-img-container {
-                width: 96px;
-                height: 96px;
-            }
-
-            .card h3 {
-                font-size: 1rem;
-            }
-
-            .btn,
-            .badge-soon {
-                min-height: 48px;
-
-                font-size: .82rem;
-            }
-
-            .contact-line {
-                font-size: .66rem;
-            }
-        }
-
-        /* =========================================
-           Landscape Phones
-        ========================================= */
-
-        @media (max-height: 520px) and (orientation: landscape) {
-
-            .container {
-                padding-top: 20px;
-                padding-bottom: calc(74px + env(safe-area-inset-bottom));
-            }
-
-            header {
-                margin-bottom: 25px;
-            }
-
-            header h1 {
-                font-size: 2rem;
-            }
-
-            header p {
-                display: none;
-            }
-
-            .grid {
-                grid-template-columns:
-                    repeat(2, 1fr);
-            }
-
-            .card:last-child {
-                grid-column: auto;
-
-                max-width: none;
-            }
-
-            .contact-bar {
-                padding:
-                    4px 12px
-                    calc(4px + env(safe-area-inset-bottom));
-            }
-
-            .contact-line {
-                font-size: .68rem;
-                line-height: 1.4;
-            }
-        }
-
-        /* =========================================
-           Reduced Motion
-        ========================================= */
-
-        @media (prefers-reduced-motion: reduce) {
-
-            *,
-            *::before,
-            *::after {
-                animation-duration: .01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: .01ms !important;
-                scroll-behavior: auto !important;
-            }
-        }
-    </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
+<body class="bg-slate-900 text-slate-100 font-['Cairo',sans-serif] h-screen flex flex-col overflow-hidden">
 
-<body>
+  <!-- Header -->
+  <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center gap-3">
+      <!-- Sidebar Toggle Button for Mobile -->
+      <button id="toggle-sidebar" class="lg:hidden p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 focus:outline-none" aria-label="قائمة السور">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
 
-    <!-- Islamic pattern -->
-    <div class="islamic-pattern" aria-hidden="true"></div>
-
-    <!-- Animated stars -->
-    <div class="stars" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
+      <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-400 border border-emerald-500/20">
+        <i data-lucide="book-open" class="w-6 h-6"></i>
+      </div>
+      <h1 class="text-lg md:text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+        القرآن الكريم
+      </h1>
     </div>
 
-    <main class="container">
+    <!-- Global Actions -->
+    <div class="flex items-center gap-2">
+      <div class="relative hidden sm:block w-48 md:w-60">
+        <i data-lucide="search" class="absolute right-3 top-2.5 w-4 h-4 text-slate-400"></i>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="ابحث عن سورة..."
+          class="w-full bg-slate-800 border border-slate-700 text-sm rounded-lg pr-9 pl-4 py-2 focus:outline-none focus:border-emerald-500 text-slate-200"
+        />
+      </div>
+    </div>
+  </header>
 
-        <!-- Header -->
-        <header>
+  <!-- Main Content Layout -->
+  <div class="flex flex-1 overflow-hidden relative">
+    
+    <!-- Sidebar Overlay / Backdrop (Mobile Only) -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-slate-950/70 z-40 lg:hidden hidden transition-opacity duration-300"></div>
 
-            <div class="title-decoration" aria-hidden="true">
-                <span class="line"></span>
-                <span class="diamond"></span>
-                <span class="diamond"></span>
-                <span class="diamond"></span>
-                <span class="line"></span>
-            </div>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 right-0 z-50 w-72 sm:w-80 bg-slate-900 border-l border-slate-800 flex flex-col transform translate-x-full lg:translate-x-0 lg:static lg:z-auto transition-transform duration-300 ease-in-out shrink-0">
+      
+      <!-- Drawer Mobile Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between lg:hidden">
+        <span class="font-bold text-slate-200">فهرس السور</span>
+        <button id="close-sidebar" class="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
 
-            <h1>
-                وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا
-            </h1>
-
-            <p>
-                اختر القارئ المفضل لديك واستمع إلى تلاوات القرآن الكريم بخشوع وطمأنينة
-            </p>
-
-            <div class="header-line"></div>
-
-        </header>
-
-
-        <!-- Reciters -->
-        <section class="grid" aria-label="قائمة القراء">
-
-            <!-- Mahmoud Ali Al-Banna -->
-            <article class="card">
-
-                <div class="sheikh-img-container">
-                    <img
-                        src="images/bana.jpg"
-                        alt="الشيخ محمود علي البنا"
-                        class="sheikh-img"
-                    >
-                </div>
-
-                <h3>
-                    الشيخ محمود علي البنا
-                </h3>
-
-                <p class="role">
-                    رواية حفص عن عاصم
-                </p>
-
-                <a
-                    href="bana/index.html"
-                    class="btn"
-                    aria-label="الدخول إلى تلاوات الشيخ محمود علي البنا"
-                >
-                    <span>الدخول إلى التلاوة</span>
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-
-            </article>
-
-
-            <!-- Maher Al-Muaiqly -->
-            <article class="card">
-
-                <div class="sheikh-img-container">
-                    <img
-                        src="images/maher.jpg"
-                        alt="الشيخ ماهر المعيقلي"
-                        class="sheikh-img"
-                    >
-                </div>
-
-                <h3>
-                    الشيخ ماهر المعيقلي
-                </h3>
-
-                <p class="role">
-                    تلاوة خاشعة ومتجددة
-                </p>
-
-                <a
-                    href="maher/index.html"
-                    class="btn"
-                    aria-label="الدخول إلى تلاوات الشيخ ماهر المعيقلي"
-                >
-                    <span>الدخول إلى التلاوة</span>
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-
-            </article>
-
-
-            <!-- Abdul Basit -->
-            <article class="card coming-soon">
-
-                <div class="sheikh-img-container">
-
-                    <img
-                        src="images/default.png"
-                        alt="الشيخ عبد الباسط عبد الصمد - قريباً"
-                        class="sheikh-img"
-                    >
-
-                </div>
-
-                <h3>
-                    قريباً إن شاء الله
-                </h3>
-
-                <p class="role">
-                    قريباً إن شاء الله
-                </p>
-
-                <div class="badge-soon">
-
-                    <i class="fa-solid fa-clock"></i>
-
-                    <span>
-                        ترقبونا قريباً
-                    </span>
-
-                </div>
-
-            </article>
-
-        </section>
-
-    </main>
-
-
-    <!-- =========================================
-         Fixed Contact Bar (Always Visible)
-    ========================================== -->
-    <footer class="contact-bar" role="contentinfo">
-
-        <div class="contact-inner">
-
-            <p class="contact-line line-1">
-                لا تتردد في التواصل لعمل أي تحسينات أو إضافات
-            </p>
-
-            <a
-                class="contact-line line-2"
-                href="https://wa.me/201006855874"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="تواصل عبر واتساب على الرقم 01006855874"
-            >
-                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
-                <span>واتساب 01006855874</span>
-            </a>
-
-            <p class="contact-line line-3">
-                شارك في الثواب
-            </p>
-
+      <div class="p-3 border-b border-slate-800 sm:hidden">
+        <div class="relative">
+          <i data-lucide="search" class="absolute right-3 top-2.5 w-4 h-4 text-slate-400"></i>
+          <input
+            id="mobile-search-input"
+            type="text"
+            placeholder="ابحث عن سورة..."
+            class="w-full bg-slate-800 border border-slate-700 text-sm rounded-lg pr-9 pl-4 py-2 text-slate-200"
+          />
         </div>
+      </div>
 
-    </footer>
+      <div id="surahs-list" class="overflow-y-auto flex-1 divide-y divide-slate-800/50 custom-scrollbar">
+        <!-- Dynamic Surahs -->
+      </div>
+    </aside>
 
+    <!-- Main Quran Display -->
+    <main class="flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 space-y-6 pb-36 md:pb-28 custom-scrollbar" id="quran-container">
+      
+      <!-- Surah Header Banner -->
+      <div class="relative overflow-hidden bg-gradient-to-br from-emerald-900/40 via-slate-800/50 to-slate-900 border border-emerald-500/20 rounded-2xl p-4 sm:p-8 text-center shadow-xl">
+        <h2 id="current-surah-title" class="font-quran text-3xl sm:text-4xl md:text-5xl font-bold text-emerald-400 mb-2">
+          جاري التحميل...
+        </h2>
+        <p id="current-surah-info" class="text-slate-400 text-xs sm:text-sm"></p>
+        <div id="bismillah" class="font-quran text-xl sm:text-2xl text-emerald-300/80 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-slate-700/50 hidden">
+          بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
+        </div>
+      </div>
+
+      <!-- Ayahs Container -->
+      <div id="ayahs-container" class="space-y-4">
+        <!-- Dynamic Ayahs -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Sticky Audio Player Footer -->
+  <footer class="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-4 py-3 shadow-2xl">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+      
+      <!-- Reciter Selector & Info -->
+      <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+        <div class="flex items-center gap-3">
+          <div class="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-emerald-400 hidden sm:block">
+            <i data-lucide="mic" class="w-5 h-5"></i>
+          </div>
+          <select id="reciter-select" class="bg-slate-800 text-xs md:text-sm text-slate-200 border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-500 max-w-[200px] sm:max-w-xs truncate">
+            <!-- Loaded dynamically from app.js -->
+          </select>
+        </div>
+        <div id="audio-info" class="text-xs text-slate-400 truncate sm:block">اختر سورة للبدء</div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="flex items-center justify-center gap-6 w-full sm:w-auto">
+        <button id="prev-btn" class="text-slate-400 hover:text-slate-200 transition p-1">
+          <i data-lucide="skip-back" class="w-5 h-5"></i>
+        </button>
+
+        <button id="play-btn" class="w-11 h-11 bg-emerald-500 text-slate-950 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-400 transition shrink-0">
+          <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+        </button>
+
+        <button id="next-btn" class="text-slate-400 hover:text-slate-200 transition p-1">
+          <i data-lucide="skip-forward" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Tafsir Modal -->
+  <div id="tafsir-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[80vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+        <h3 id="tafsir-title" class="font-bold text-emerald-400 text-lg">تفسير الآية</h3>
+        <button id="close-tafsir" class="text-slate-400 hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="tafsir-content" class="text-slate-300 leading-relaxed overflow-y-auto text-sm sm:text-base">
+        جاري تحميل التفسير...
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
